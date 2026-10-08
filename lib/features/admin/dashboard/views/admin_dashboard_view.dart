@@ -166,7 +166,11 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: Image.network(art.featuredImage,
-                        width: 50, height: 40, fit: BoxFit.cover),
+                        width: 50,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        cacheWidth: 100,
+                        cacheHeight: 80),
                   ),
                   title: Text(
                     art.title,

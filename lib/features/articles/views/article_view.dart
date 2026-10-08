@@ -123,7 +123,6 @@ class ArticleView extends GetView<ArticleController> {
                             ),
                           ],
                         ),
-                        const Spacer(),
                         ShareButtonsWidget(title: article.title, url: articleUrl),
                       ],
                     ),
@@ -345,9 +344,15 @@ class _ArticleBodyContent extends StatelessWidget {
 
   const _ArticleBodyContent({required this.content});
 
+  static final RegExp _numberedLine = RegExp(r'^\d+\.\s+');
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bodyStyle = theme.textTheme.bodyLarge?.copyWith(
+      height: 1.8,
+      fontSize: 16.5,
+    );
     final paragraphs = content.split('\n\n');
 
     return Column(
@@ -376,18 +381,76 @@ class _ArticleBodyContent extends StatelessWidget {
             ),
           );
         } else {
+          final lines = trimmed.split('\n');
+          final isNumberedList =
+              lines.every((l) => _numberedLine.hasMatch(l.trim()));
+
+          if (isNumberedList) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final line in lines)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildNumberedLine(line.trim(), bodyStyle),
+                    ),
+                ],
+              ),
+            );
+          }
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              trimmed,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                height: 1.8,
-                fontSize: 16.5,
-              ),
-            ),
+            child: _buildInlineText(trimmed, bodyStyle),
           );
         }
       }).toList(),
+    );
+  }
+
+  Widget _buildNumberedLine(String line, TextStyle? style) {
+    final match = _numberedLine.firstMatch(line);
+    final marker = match?.group(0) ?? '';
+    final rest = marker.isEmpty ? line : line.substring(marker.length);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 34,
+          child: Text(
+            marker.trim(),
+            maxLines: 1,
+            style: style?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(child: _buildInlineText(rest, style)),
+      ],
+    );
+  }
+
+  /// Renders **bold** spans without a markdown package; unpaired markers
+  /// render as literal text.
+  Widget _buildInlineText(String text, TextStyle? style) {
+    final parts = text.split('**');
+    // An even part count means the '**' markers are unpaired — render them
+    // as literal text instead of bolding a stray tail segment.
+    if (parts.length == 1 || parts.length.isEven) {
+      return Text(text, style: style);
+    }
+    return Text.rich(
+      TextSpan(
+        children: [
+          for (var i = 0; i < parts.length; i++)
+            TextSpan(
+              text: parts[i],
+              style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
+            ),
+        ],
+      ),
+      style: style,
     );
   }
 }

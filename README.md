@@ -42,7 +42,6 @@ All commands must be executed from inside `D:\personal blog websites\india_tech_
 | **Run Test Suite** | `fvm flutter test` |
 | **Run Locally (Chrome)**| `fvm flutter run -d chrome` |
 | **Build Web Release** | `fvm flutter build web --release` |
-| **Build with CanvasKit/HTML** | `fvm flutter build web --release --web-renderer canvaskit` |
 
 ---
 
@@ -150,6 +149,12 @@ D:\personal blog websites\india_tech_web\
 ### Admin Routes
 - `/admin` & `/admin/dashboard` — Metric dashboard
 - `/admin/login` — Authentication screen
+
+> **Phase 1 status:** The admin CMS and its sign-in are a **client-side mock only**.
+> Any non-empty email/password combination is accepted, the gate is UX routing
+> (GetMiddleware), and no credential is verified or stored — everything in a
+> Flutter Web bundle is public. Real authentication and authorization arrive in
+> Phase 2 and **must** be enforced server-side (Supabase Auth + RLS).
 - `/admin/articles` — Article list & quick actions
 - `/admin/articles/create` — Composition editor
 - `/admin/articles/edit/:id` — Edit existing story
@@ -231,5 +236,3 @@ The architecture isolates the UI from the mock layer through repository interfac
 - **Analyzer Status**: `0 issues` (`fvm flutter analyze` passed cleanly)
 - **Test Status**: `13 / 13 passed` (`fvm flutter test` passed 100%)
 - **Release Build**: `build/web` generated successfully with full font and icon tree-shaking
-#   b h a r a t - t e c h - p u l s e  
- 

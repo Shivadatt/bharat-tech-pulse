@@ -14,6 +14,8 @@ import '../../features/admin/seo/views/admin_seo_view.dart';
 import '../../features/admin/settings/views/admin_settings_view.dart';
 import '../../features/admin/tags/views/admin_tags_view.dart';
 import '../../features/admin/trending/views/admin_trending_view.dart';
+import '../config/site_config.dart';
+import '../middleware/admin_auth_middleware.dart';
 import '../../features/articles/bindings/article_binding.dart';
 import '../../features/articles/views/article_view.dart';
 import '../../features/authors/bindings/author_binding.dart';
@@ -31,6 +33,7 @@ import '../../features/static_pages/views/editorial_policy_view.dart';
 import '../../features/static_pages/views/not_found_view.dart';
 import '../../features/static_pages/views/privacy_policy_view.dart';
 import '../../features/static_pages/views/terms_view.dart';
+import '../../shared/widgets/page_seo_init.dart';
 import 'app_routes.dart';
 
 class AppPages {
@@ -50,48 +53,56 @@ class AppPages {
       name: AppRoutes.ai,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'ai'},
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.smartphones,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'smartphones'},
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.apps,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'apps'},
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.howTo,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'how-to'},
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.techNews,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'tech-news'},
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.comparisons,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'comparisons'},
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.cyberSafety,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'cyber-safety'},
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.buyingGuides,
       page: () => const CategoryView(),
       binding: CategoryBinding(),
+      parameters: {'slug': 'buying-guides'},
       transition: Transition.fadeIn,
     ),
     GetPage(
@@ -112,39 +123,81 @@ class AppPages {
       binding: AuthorBinding(),
       transition: Transition.fadeIn,
     ),
+    // Static pages carry their SEO meta here (not in a GetMiddleware) because
+    // GetX skips middleware on the initial deep-linked route — the visit type
+    // crawlers make. PageSeoInit's initState runs on every mount.
     GetPage(
       name: AppRoutes.about,
-      page: () => const AboutView(),
+      page: () => PageSeoInit(
+        title: 'About Us',
+        description:
+            'Meet the Bharat Tech Pulse editorial team and our mission of jargon-free, high-integrity technology journalism for India.',
+        canonicalPath: AppRoutes.about,
+        child: const AboutView(),
+      ),
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.contact,
-      page: () => const ContactView(),
+      page: () => PageSeoInit(
+        title: 'Contact Us',
+        description:
+            'Get in touch with the Bharat Tech Pulse team for tips, corrections, feedback, and partnership enquiries.',
+        canonicalPath: AppRoutes.contact,
+        child: const ContactView(),
+      ),
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.editorialPolicy,
-      page: () => const EditorialPolicyView(),
+      page: () => PageSeoInit(
+        title: 'Editorial Policy',
+        description:
+            'How Bharat Tech Pulse tests, reviews, and fact-checks technology for Indian readers.',
+        canonicalPath: AppRoutes.editorialPolicy,
+        child: const EditorialPolicyView(),
+      ),
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.privacyPolicy,
-      page: () => const PrivacyPolicyView(),
+      page: () => PageSeoInit(
+        title: 'Privacy Policy',
+        description:
+            'How Bharat Tech Pulse collects, uses, and protects visitor information.',
+        canonicalPath: AppRoutes.privacyPolicy,
+        child: const PrivacyPolicyView(),
+      ),
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.terms,
-      page: () => const TermsView(),
+      page: () => PageSeoInit(
+        title: 'Terms of Use',
+        description: 'Terms governing the use of the Bharat Tech Pulse website.',
+        canonicalPath: AppRoutes.terms,
+        child: const TermsView(),
+      ),
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.disclaimer,
-      page: () => const DisclaimerView(),
+      page: () => PageSeoInit(
+        title: 'Disclaimer',
+        description:
+            'Editorial, affiliate, and accuracy disclaimers for Bharat Tech Pulse content.',
+        canonicalPath: AppRoutes.disclaimer,
+        child: const DisclaimerView(),
+      ),
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: AppRoutes.notFound,
-      page: () => const NotFoundView(),
+      page: () => PageSeoInit(
+        title: 'Page Not Found',
+        description: SiteConfig.description,
+        child: const NotFoundView(),
+      ),
       transition: Transition.fadeIn,
     ),
 
@@ -155,6 +208,7 @@ class AppPages {
       name: AppRoutes.admin,
       page: () => const AdminDashboardView(),
       binding: AdminDashboardBinding(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminLogin,
@@ -165,54 +219,67 @@ class AppPages {
       name: AppRoutes.adminDashboard,
       page: () => const AdminDashboardView(),
       binding: AdminDashboardBinding(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminArticles,
       page: () => const AdminArticlesListView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminArticleCreate,
       page: () => const AdminArticleEditorView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminArticleEdit,
       page: () => const AdminArticleEditorView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminCategories,
       page: () => const AdminCategoriesView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminTags,
       page: () => const AdminTagsView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminAuthors,
       page: () => const AdminAuthorsView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminMedia,
       page: () => const AdminMediaView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminTrending,
       page: () => const AdminTrendingView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminScheduled,
       page: () => const AdminScheduledView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminSeo,
       page: () => const AdminSeoView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminAnalytics,
       page: () => const AdminAnalyticsView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminSettings,
       page: () => const AdminSettingsView(),
+      middlewares: [AdminAuthMiddleware()],
     ),
   ];
 }

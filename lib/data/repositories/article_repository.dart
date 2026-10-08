@@ -17,6 +17,9 @@ abstract class ArticleRepository {
   // Admin / CRUD methods
   Future<List<ArticleModel>> getAllArticlesForAdmin();
   Future<ArticleModel> createArticle(ArticleModel article);
-  Future<ArticleModel> updateArticle(ArticleModel article);
+
+  /// Updates an existing article. Returns false when [article.id] does not
+  /// exist — implementations must never silently insert in this case.
+  Future<bool> updateArticle(ArticleModel article);
   Future<bool> deleteArticle(String id);
 }

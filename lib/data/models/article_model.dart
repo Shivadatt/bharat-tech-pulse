@@ -1,5 +1,8 @@
 import 'author_model.dart';
 
+/// Editorial lifecycle of an article. Serialized by name in JSON.
+enum ArticleStatus { draft, scheduled, published }
+
 class ArticleFaq {
   final String question;
   final String answer;
@@ -44,6 +47,8 @@ class ArticleModel {
   final DateTime updatedAt;
   final String featuredImage;
   final int readingTimeMinutes;
+  final ArticleStatus status;
+  final DateTime? scheduledFor;
   final bool isFeatured;
   final bool isTrending;
   final bool isPopular;
@@ -67,6 +72,8 @@ class ArticleModel {
     required this.updatedAt,
     required this.featuredImage,
     required this.readingTimeMinutes,
+    this.status = ArticleStatus.published,
+    this.scheduledFor,
     this.isFeatured = false,
     this.isTrending = false,
     this.isPopular = false,
@@ -91,6 +98,8 @@ class ArticleModel {
         'updated_at': updatedAt.toIso8601String(),
         'featured_image': featuredImage,
         'reading_time_minutes': readingTimeMinutes,
+        'status': status.name,
+        'scheduled_for': scheduledFor?.toIso8601String(),
         'is_featured': isFeatured,
         'is_trending': isTrending,
         'is_popular': isPopular,
@@ -118,6 +127,13 @@ class ArticleModel {
         updatedAt: DateTime.parse(json['updated_at'] as String),
         featuredImage: json['featured_image'] as String,
         readingTimeMinutes: json['reading_time_minutes'] as int? ?? 5,
+        status: ArticleStatus.values.firstWhere(
+          (s) => s.name == json['status'],
+          orElse: () => ArticleStatus.published,
+        ),
+        scheduledFor: json['scheduled_for'] != null
+            ? DateTime.parse(json['scheduled_for'] as String)
+            : null,
         isFeatured: json['is_featured'] as bool? ?? false,
         isTrending: json['is_trending'] as bool? ?? false,
         isPopular: json['is_popular'] as bool? ?? false,
@@ -151,6 +167,8 @@ class ArticleModel {
     DateTime? updatedAt,
     String? featuredImage,
     int? readingTimeMinutes,
+    ArticleStatus? status,
+    DateTime? scheduledFor,
     bool? isFeatured,
     bool? isTrending,
     bool? isPopular,
@@ -174,6 +192,8 @@ class ArticleModel {
       updatedAt: updatedAt ?? this.updatedAt,
       featuredImage: featuredImage ?? this.featuredImage,
       readingTimeMinutes: readingTimeMinutes ?? this.readingTimeMinutes,
+      status: status ?? this.status,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
       isFeatured: isFeatured ?? this.isFeatured,
       isTrending: isTrending ?? this.isTrending,
       isPopular: isPopular ?? this.isPopular,

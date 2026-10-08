@@ -146,20 +146,6 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
         ),
         const SizedBox(width: 8),
 
-        // Admin Portal Link
-        Tooltip(
-          message: 'Editorial Admin CMS',
-          child: TextButton.icon(
-            onPressed: () => Get.toNamed('/admin/dashboard'),
-            icon: const Icon(Icons.admin_panel_settings_outlined, size: 16),
-            label: const Text('Admin', style: TextStyle(fontSize: 12)),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-
         // Theme Toggle
         Obx(() {
           final isDark = themeController.isDarkMode;

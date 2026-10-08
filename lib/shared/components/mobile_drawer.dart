@@ -112,11 +112,6 @@ class MobileDrawer extends StatelessWidget {
                     title: 'Contact',
                     route: '/contact',
                   ),
-                  _DrawerItem(
-                    icon: Icons.admin_panel_settings_outlined,
-                    title: 'Admin Dashboard',
-                    route: '/admin/dashboard',
-                  ),
                 ],
               ),
             ),

@@ -28,6 +28,8 @@ class CompactArticleCard extends StatelessWidget {
                 child: Image.network(
                   article.featuredImage,
                   fit: BoxFit.cover,
+                  cacheWidth: 180,
+                  cacheHeight: 140,
                   errorBuilder: (context, error, stackTrace) =>
                       Container(color: theme.colorScheme.surface),
                 ),

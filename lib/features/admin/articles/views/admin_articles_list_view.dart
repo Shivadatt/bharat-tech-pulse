@@ -2,8 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../data/models/article_model.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../controllers/admin_article_controller.dart';
+
+bool _isPubliclyVisible(ArticleModel art) {
+  final now = DateTime.now();
+  return art.status == ArticleStatus.published ||
+      (art.status == ArticleStatus.scheduled &&
+          art.scheduledFor != null &&
+          !art.scheduledFor!.isAfter(now));
+}
 
 class AdminArticlesListView extends GetView<AdminArticleController> {
   const AdminArticlesListView({super.key});
@@ -65,6 +74,8 @@ class AdminArticlesListView extends GetView<AdminArticleController> {
                           width: 60,
                           height: 48,
                           fit: BoxFit.cover,
+                          cacheWidth: 120,
+                          cacheHeight: 96,
                           errorBuilder: (context, error, stackTrace) =>
                               Container(width: 60, height: 48, color: Colors.grey),
                         ),
@@ -83,10 +94,16 @@ class AdminArticlesListView extends GetView<AdminArticleController> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          _StatusChip(status: art.status),
+                          const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                            tooltip: 'Preview Live',
-                            onPressed: () => Get.toNamed('/article/${art.slug}'),
+                            tooltip: _isPubliclyVisible(art)
+                                ? 'Preview Live'
+                                : 'Not visible on the live site yet',
+                            onPressed: _isPubliclyVisible(art)
+                                ? () => Get.toNamed('/article/${art.slug}')
+                                : null,
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined, size: 18),
@@ -112,6 +129,37 @@ class AdminArticlesListView extends GetView<AdminArticleController> {
           ),
         );
       }),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final ArticleStatus status;
+
+  const _StatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final (String label, MaterialColor color) = switch (status) {
+      ArticleStatus.published => ('Published', Colors.green),
+      ArticleStatus.scheduled => ('Scheduled', Colors.orange),
+      ArticleStatus.draft => ('Draft', Colors.grey),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withAlpha(30),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color.shade700,
+        ),
+      ),
     );
   }
 }

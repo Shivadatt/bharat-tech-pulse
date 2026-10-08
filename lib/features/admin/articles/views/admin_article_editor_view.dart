@@ -2,35 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../controllers/admin_article_controller.dart';
+import '../../../../shared/responsive/responsive_breakpoints.dart';
 
-class AdminArticleEditorView extends GetView<AdminArticleController> {
+class AdminArticleEditorView extends StatefulWidget {
   const AdminArticleEditorView({super.key});
+
+  @override
+  State<AdminArticleEditorView> createState() => _AdminArticleEditorViewState();
+}
+
+class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
+  AdminArticleController get controller => Get.find<AdminArticleController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.initializeFromRoute();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isEdit = controller.editingArticleId != null;
 
-    return AdminScaffold(
-      title: isEdit ? 'Edit Article' : 'Compose New Article',
-      actions: [
-        OutlinedButton(
-          onPressed: () => controller.saveArticle(newStatus: 'draft'),
-          child: const Text('Save Draft'),
-        ),
-        const SizedBox(width: 8),
-        OutlinedButton(
-          onPressed: () => controller.saveArticle(newStatus: 'scheduled'),
-          child: const Text('Schedule'),
-        ),
-        const SizedBox(width: 8),
-        ElevatedButton.icon(
-          onPressed: () => controller.saveArticle(newStatus: 'published'),
-          icon: const Icon(Icons.publish_rounded, size: 16),
-          label: const Text('Publish Now'),
-        ),
-      ],
-      body: SingleChildScrollView(
+    return Obx(() {
+      final hasError = controller.editorError.value.isNotEmpty;
+      final isDesktop = ResponsiveBreakpoints.isDesktop(context);
+
+      return AdminScaffold(
+        title: hasError
+            ? 'Article Error'
+            : controller.isEditingMode.value
+                ? 'Edit Article'
+                : 'Compose New Article',
+        actions: hasError
+            ? const []
+            : isDesktop
+                ? [
+                    OutlinedButton(
+                      onPressed: () => controller.saveArticle(newStatus: 'draft'),
+                      child: const Text('Save Draft'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: () => controller.saveArticle(newStatus: 'scheduled'),
+                      child: const Text('Schedule'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => controller.saveArticle(newStatus: 'published'),
+                      icon: const Icon(Icons.publish_rounded, size: 16),
+                      label: const Text('Publish Now'),
+                    ),
+                  ]
+                // On phone-width admin the three buttons overflow the AppBar.
+                : [
+                    PopupMenuButton<String>(
+                      tooltip: 'Publishing options',
+                      icon: const Icon(Icons.more_vert_rounded),
+                      onSelected: (action) => controller.saveArticle(newStatus: action),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'draft', child: Text('Save Draft')),
+                        PopupMenuItem(value: 'scheduled', child: Text('Schedule')),
+                        PopupMenuItem(value: 'published', child: Text('Publish Now')),
+                      ],
+                    ),
+                  ],
+        body: hasError
+            ? _EditorErrorState(message: controller.editorError.value)
+            : SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -246,6 +287,65 @@ class AdminArticleEditorView extends GetView<AdminArticleController> {
           ],
         ),
       ),
+      );
+    });
+  }
+}
+
+class _EditorErrorState extends StatelessWidget {
+  final String message;
+
+  const _EditorErrorState({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // AdminScaffold wraps the body in a SingleChildScrollView, so a bare
+    // Center shrink-wraps; pin the minimum height to the viewport to center.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.error.withAlpha(25),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.error_outline_rounded,
+                      size: 48, color: theme.colorScheme.error),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Article Not Found',
+                  style: theme.textTheme.headlineMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => Get.offNamed('/admin/articles'),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Back to Articles'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

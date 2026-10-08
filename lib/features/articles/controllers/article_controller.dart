@@ -53,6 +53,7 @@ class ArticleController extends GetxController {
         slug: art.slug,
         authorName: art.author.name,
         publishedAt: art.publishedAt,
+        updatedAt: art.updatedAt,
         featuredImage: art.featuredImage,
         categoryName: art.categoryName,
       );

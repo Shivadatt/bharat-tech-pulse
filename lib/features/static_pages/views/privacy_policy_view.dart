@@ -35,7 +35,7 @@ class PrivacyPolicyView extends StatelessWidget {
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(
-                    'We do not collect Aadhaar numbers, biometric data, or financial credentials. For newsletter subscribers, we collect only your provided email address, stored with industry standard encryption.',
+                    'We do not collect Aadhaar numbers, biometric data, or financial credentials. For newsletter subscribers, we collect only your provided email address; once account features launch, it will be protected with industry standard encryption.',
                     style: theme.textTheme.bodyMedium?.copyWith(height: 1.7),
                   ),
                   const SizedBox(height: 20),

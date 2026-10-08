@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../../../app/routes/app_routes.dart';
 import '../../../core/seo/seo_service.dart';
 import '../../../data/models/article_model.dart';
 import '../../../data/models/category_model.dart';
@@ -26,18 +27,13 @@ class CategoryController extends GetxController {
   final RxList<ArticleModel> popularArticles = <ArticleModel>[].obs;
   final RxString selectedSubcategory = ''.obs;
 
+  // The controller is type-keyed, so GetX keeps this same instance alive when
+  // the user navigates from one category route straight into another. Track
+  // which slug is loaded so the view can reload on route change.
+  String? _loadedSlug;
+
   String get currentSlug {
-    final route = Get.currentRoute;
-    if (route.contains('/ai')) return 'ai';
-    if (route.contains('/smartphones')) return 'smartphones';
-    if (route.contains('/apps')) return 'apps';
-    if (route.contains('/how-to')) return 'how-to';
-    if (route.contains('/tech-news')) return 'tech-news';
-    if (route.contains('/comparisons')) return 'comparisons';
-    if (route.contains('/cyber-safety')) return 'cyber-safety';
-    if (route.contains('/buying-guides')) return 'buying-guides';
-    final paramSlug = Get.parameters['slug'];
-    return paramSlug ?? 'ai';
+    return Get.parameters['slug'] ?? 'ai';
   }
 
   @override
@@ -46,13 +42,25 @@ class CategoryController extends GetxController {
     loadCategory(currentSlug);
   }
 
+  void ensureCurrentRouteLoaded() {
+    final slug = currentSlug;
+    if (slug != _loadedSlug && !isLoading.value) {
+      loadCategory(slug);
+    }
+  }
+
   Future<void> loadCategory(String slug) async {
     try {
       isLoading.value = true;
       errorMessage.value = '';
 
       final cat = await categoryRepository.getCategoryBySlug(slug);
+      if (cat == null) {
+        Get.offNamed(AppRoutes.notFound);
+        return;
+      }
       category.value = cat;
+      _loadedSlug = slug;
 
       final articles = await articleRepository.getArticlesByCategory(slug);
       if (articles.isNotEmpty) {
@@ -69,13 +77,11 @@ class CategoryController extends GetxController {
       final popular = await articleRepository.getPopularArticles(limit: 4);
       popularArticles.assignAll(popular);
 
-      if (cat != null) {
-        seoService.updateMeta(
-          title: '${cat.name} — Bharat Tech Pulse',
-          description: cat.description,
-          canonicalPath: '/$slug/',
-        );
-      }
+      seoService.updateMeta(
+        title: '${cat.name} — Bharat Tech Pulse',
+        description: cat.description,
+        canonicalPath: '/$slug/',
+      );
     } catch (e) {
       errorMessage.value = e.toString();
     } finally {

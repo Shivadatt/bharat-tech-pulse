@@ -59,6 +59,8 @@ class _ArticleCardState extends State<ArticleCard> {
                     child: Image.network(
                       article.featuredImage,
                       fit: BoxFit.cover,
+                      cacheWidth: 800,
+                      cacheHeight: 450,
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: theme.colorScheme.surface,
                         child: const Icon(Icons.broken_image_rounded, size: 40),

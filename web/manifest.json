@@ -1,11 +1,11 @@
 {
-    "name": "india_tech_web",
-    "short_name": "india_tech_web",
-    "start_url": ".",
+    "name": "Bharat Tech Pulse",
+    "short_name": "Bharat Tech Pulse",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B0F19",
+    "theme_color": "#06B6D4",
+    "description": "Simple technology guides, AI insights & smartphone reviews for everyday India.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

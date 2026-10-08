@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class AdminAuthController extends GetxController {
-  final emailController = TextEditingController(text: 'editor@bharattechpulse.in');
-  final passwordController = TextEditingController(text: 'admin123');
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
 
-  final RxBool isLoggedIn = true.obs; // Mock default logged in for dev convenience
+  /// MOCK-ONLY AUTHENTICATION. Any non-empty email/password combination is
+  /// accepted and no credential is verified. This is NOT production auth;
+  /// real enforcement must move server-side (Supabase Auth + RLS) in Phase 2.
+  final RxBool isLoggedIn = false.obs;
   final RxBool isLoading = false.obs;
   final RxString errorMessage = ''.obs;
 

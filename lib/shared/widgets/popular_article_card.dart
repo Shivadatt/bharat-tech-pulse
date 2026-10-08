@@ -36,6 +36,8 @@ class PopularArticleCard extends StatelessWidget {
                 child: Image.network(
                   article.featuredImage,
                   fit: BoxFit.cover,
+                  cacheWidth: 160,
+                  cacheHeight: 160,
                   errorBuilder: (context, error, stackTrace) =>
                       Container(color: theme.colorScheme.surface),
                 ),

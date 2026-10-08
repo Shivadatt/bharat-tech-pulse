@@ -16,8 +16,23 @@ import '../../../shared/widgets/popular_article_card.dart';
 import '../../../shared/widgets/trending_card.dart';
 import '../controllers/category_controller.dart';
 
-class CategoryView extends GetView<CategoryController> {
+class CategoryView extends StatefulWidget {
   const CategoryView({super.key});
+
+  @override
+  State<CategoryView> createState() => _CategoryViewState();
+}
+
+class _CategoryViewState extends State<CategoryView> {
+  CategoryController get controller => Get.find<CategoryController>();
+
+  @override
+  void initState() {
+    super.initState();
+    // GetX keeps the type-keyed controller alive across category routes;
+    // each route entry gets a fresh widget, so reload when the slug changed.
+    controller.ensureCurrentRouteLoaded();
+  }
 
   @override
   Widget build(BuildContext context) {

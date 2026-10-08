@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../../../core/platform/browser_path.dart';
 import '../../../core/seo/seo_service.dart';
 import '../../../data/models/article_model.dart';
 import '../../../data/repositories/article_repository.dart';
@@ -29,12 +30,18 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    seoService.updateMeta(
-      title: 'Bharat Tech Pulse — Technology for Everyday India',
-      description:
-          'Actionable AI tools, unbiased smartphone reviews, practical how-to tutorials, and cyber safety alerts for Indian users.',
-      canonicalPath: '/',
-    );
+    // On an unknown-URL deep link GetX boots HomeController beneath the 404
+    // page. Only brand the page when the browser is genuinely on the home
+    // path so the 404's own metadata wins.
+    final path = browserPath();
+    if (path == '/' || path == '/index.html') {
+      seoService.updateMeta(
+        title: 'Bharat Tech Pulse — Technology for Everyday India',
+        description:
+            'Actionable AI tools, unbiased smartphone reviews, practical how-to tutorials, and cyber safety alerts for Indian users.',
+        canonicalPath: '/',
+      );
+    }
     loadHomeData();
   }
 
