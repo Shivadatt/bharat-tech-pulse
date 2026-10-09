@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../core/analytics/analytics_service.dart';
 import '../features/static_pages/views/not_found_view.dart';
 import '../shared/widgets/page_seo_init.dart';
 import 'config/site_config.dart';
@@ -37,6 +38,13 @@ class BharatTechApp extends StatelessWidget {
         themeMode: themeController.themeMode.value,
         defaultTransition: Transition.fadeIn,
         transitionDuration: const Duration(milliseconds: 200),
+        // One page_view beacon per navigation. Admin routes are skipped so
+        // staff browsing does not inflate the public traffic series.
+        routingCallback: (routing) {
+          final current = routing?.current;
+          if (current == null || current.startsWith('/admin')) return;
+          Get.find<AnalyticsService>().trackPageView(current);
+        },
       );
     });
   }

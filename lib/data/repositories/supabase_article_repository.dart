@@ -137,8 +137,36 @@ class SupabaseArticleRepository implements ArticleRepository {
               ?.map((e) => ArticleTocItem.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
+      seoTitle: row['seo_title'] as String? ?? '',
+      seoDescription: row['seo_description'] as String? ?? '',
+      canonicalUrl: row['canonical_url'] as String? ?? '',
+      ogTitle: row['og_title'] as String? ?? '',
+      ogDescription: row['og_description'] as String? ?? '',
+      ogImage: row['og_image'] as String? ?? '',
     );
   }
+
+  /// Falls back to the editorial fields when the SEO fields were never
+  /// customised, so `posts.seo_*`/`og_*` are never stored empty.
+  static Map<String, dynamic> seoColumns(ArticleModel article) => {
+        'seo_title': article.seoTitle.isNotEmpty
+            ? article.seoTitle
+            : article.title,
+        'seo_description': article.seoDescription.isNotEmpty
+            ? article.seoDescription
+            : article.excerpt,
+        'canonical_url': article.canonicalUrl.isNotEmpty
+            ? article.canonicalUrl
+            : '${SiteConfig.domain}/article/${article.slug}',
+        'og_title':
+            article.ogTitle.isNotEmpty ? article.ogTitle : article.title,
+        'og_description': article.ogDescription.isNotEmpty
+            ? article.ogDescription
+            : article.excerpt,
+        'og_image': article.ogImage.isNotEmpty
+            ? article.ogImage
+            : article.featuredImage,
+      };
 
   /// Builds the flat `posts` insert map from a model. `view_count` is always
   /// initialized to 0 — clients never set counters. Pass [siteId],
@@ -161,12 +189,7 @@ class SupabaseArticleRepository implements ArticleRepository {
       'published_at': article.publishedAt.toIso8601String(),
       'scheduled_for': article.scheduledFor?.toIso8601String(),
       'reading_time': article.readingTimeMinutes,
-      'seo_title': article.title,
-      'seo_description': article.excerpt,
-      'canonical_url': '${SiteConfig.domain}/article/${article.slug}',
-      'og_title': article.title,
-      'og_description': article.excerpt,
-      'og_image': article.featuredImage,
+      ...seoColumns(article),
       'is_featured': article.isFeatured,
       'is_trending': article.isTrending,
       'is_popular': article.isPopular,
@@ -181,9 +204,13 @@ class SupabaseArticleRepository implements ArticleRepository {
     return map;
   }
 
-  /// Subset of columns safe to overwrite on update. Excludes identity,
-  /// counters and SEO defaults so existing SEO customisations and
-  /// `view_count` are never clobbered by a client edit.
+  /// Subset of columns safe to overwrite on update. Excludes identity and
+  /// server-owned counters/timestamps so `view_count`, `site_id` and
+  /// `published_at` are never clobbered by a client edit.
+  ///
+  /// The SEO columns ARE writable here: the editor hydrates them from the row
+  /// (see [rowToArticle]) and falls back to title/excerpt when blank, so a
+  /// save can never silently drop a customised value.
   ///
   /// [categoryId]/[authorId] are always written — a null clears the foreign
   /// key, so a stale category/author from a previous edit can never linger.
@@ -197,14 +224,36 @@ class SupabaseArticleRepository implements ArticleRepository {
     map.remove('view_count');
     map.remove('published_at');
     map.remove('scheduled_for');
-    map.remove('seo_title');
-    map.remove('seo_description');
-    map.remove('canonical_url');
-    map.remove('og_title');
-    map.remove('og_description');
-    map.remove('og_image');
     map['category_id'] = categoryId;
     map['author_id'] = authorId;
+    return map;
+  }
+
+  /// The only columns an admin may patch without touching the editorial body.
+  /// Used by the trending/scheduled screens so a toggle can never overwrite
+  /// concurrent content edits.
+  static Map<String, dynamic> patchColumns({
+    ArticleStatus? status,
+    DateTime? scheduledFor,
+    bool? clearScheduledFor,
+    DateTime? publishedAt,
+    bool? isTrending,
+    bool? isFeatured,
+    bool? isPopular,
+  }) {
+    final map = <String, dynamic>{};
+    if (status != null) map['status'] = status.name;
+    if (scheduledFor != null) {
+      map['scheduled_for'] = scheduledFor.toUtc().toIso8601String();
+    } else if (clearScheduledFor == true) {
+      map['scheduled_for'] = null;
+    }
+    if (publishedAt != null) {
+      map['published_at'] = publishedAt.toUtc().toIso8601String();
+    }
+    if (isTrending != null) map['is_trending'] = isTrending;
+    if (isFeatured != null) map['is_featured'] = isFeatured;
+    if (isPopular != null) map['is_popular'] = isPopular;
     return map;
   }
 
@@ -516,12 +565,20 @@ class SupabaseArticleRepository implements ArticleRepository {
 
         // Slug change: register the 301 first so the old URL never 404s.
         if (oldSlug.isNotEmpty && oldSlug != article.slug) {
-          await _client.from('redirects').insert({
-            'site_id': siteId,
-            'old_path': _publicArticlePath(oldSlug),
-            'new_path': _publicArticlePath(article.slug),
-            'status_code': 301,
-          });
+          try {
+            await _client.from('redirects').insert({
+              'site_id': siteId,
+              'old_path': _publicArticlePath(oldSlug),
+              'new_path': _publicArticlePath(article.slug),
+              'status_code': 301,
+            });
+          } on PostgrestException catch (e) {
+            // UNIQUE (site_id, old_path): a redirect for this old slug already
+            // exists (e.g. the slug was renamed back to a previous value).
+            // Keep the existing mapping and continue the save instead of
+            // aborting the whole update on a 23505.
+            if (e.code != '23505') throw mapPostgrestException(e);
+          }
         }
 
         // Editorial change: snapshot a revision before overwriting.

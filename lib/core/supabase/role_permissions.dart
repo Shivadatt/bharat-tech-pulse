@@ -43,4 +43,32 @@ class RolePermissions {
       role == AdminRole.superAdmin ||
       role == AdminRole.admin ||
       role == AdminRole.editor;
+
+  /// Mirror of the `is_site_admin(...)` RLS predicates: hard deletes of
+  /// content, taxonomy, authors, redirects, site settings and subscribers.
+  static bool canDeleteRecords(AdminRole role) =>
+      role == AdminRole.superAdmin || role == AdminRole.admin;
+
+  /// Mirror of `is_site_editor(...)`: reading subscriber emails and analytics.
+  static bool canViewReports(AdminRole role) => canManageContent(role);
+
+  /// Effective CMS role: the global `super_admin` tier always wins, otherwise
+  /// the caller's `profile_sites` role for the active site decides. A caller
+  /// with no active membership has no site access at all — [resolvesTo] keeps
+  /// that distinguishable from a plain `author` member.
+  static AdminRole resolveEffective({
+    required String? globalRole,
+    required String? siteRole,
+  }) {
+    if (globalRole == 'super_admin') return AdminRole.superAdmin;
+    return parse(siteRole);
+  }
+
+  /// True only when the caller actually holds a role on the active site
+  /// (membership row, or the global super_admin tier).
+  static bool hasSiteAccess({
+    required String? globalRole,
+    required String? siteRole,
+  }) =>
+      globalRole == 'super_admin' || siteRole != null;
 }

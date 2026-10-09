@@ -1,69 +1,106 @@
 import 'package:flutter/material.dart';
-import '../../layouts/admin_scaffold.dart';
+import 'package:get/get.dart';
 
-class AdminScheduledView extends StatelessWidget {
+import '../../../../data/models/article_model.dart';
+import '../../layouts/admin_scaffold.dart';
+import '../../shared/widgets/admin_state_view.dart';
+import '../controllers/admin_scheduled_controller.dart';
+
+class AdminScheduledView extends GetView<AdminScheduledController> {
   const AdminScheduledView({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final mockScheduled = [
-      {
-        'title': 'Diwali Gadget Deals 2026: Bank Discount Breakdown on HDFC & ICICI Cards',
-        'category': 'Buying Guides',
-        'scheduledFor': 'Tomorrow at 09:00 AM IST',
-        'author': 'Rohit Deshmukh',
-      },
-      {
-        'title': 'How to Port Mobile Number via SMS Without Losing 5G VoNR Balance',
-        'category': 'How-To Guides',
-        'scheduledFor': 'Oct 12, 2026 at 11:30 AM IST',
-        'author': 'Sneha Kulkarni',
-      },
-      {
-        'title': 'Sarvam AI Speech API Benchmark vs Google Cloud Speech-to-Text',
-        'category': 'AI & AI Tools',
-        'scheduledFor': 'Oct 14, 2026 at 02:00 PM IST',
-        'author': 'Aravind Sharma',
-      },
-    ];
-
     return AdminScaffold(
       title: 'Scheduled Publishing Queue',
-      body: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Queued Stories (${mockScheduled.length})',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+      body: Obx(() {
+        final items = controller.scheduled;
+        return AdminStateView(
+          isLoading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          isEmpty: items.isEmpty,
+          emptyMessage: 'Nothing is queued for publishing.',
+          onRetry: controller.load,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Queued Stories (${items.length})',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded),
+                        onPressed: controller.load,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final post = items[index];
+                      return ListTile(
+                        leading: const Icon(Icons.alarm_on_rounded, color: Colors.purple),
+                        title: Text(post.title,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          '${post.categoryName} • ${_when(post.scheduledFor)} • '
+                          'By ${post.author.name}',
+                        ),
+                        trailing: Wrap(
+                          spacing: 6,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => _reschedule(post),
+                              child: const Text('Reschedule'),
+                            ),
+                            TextButton(
+                              onPressed: () => controller.publishNow(post),
+                              child: const Text('Publish now'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: mockScheduled.length,
-                separatorBuilder: (context, index) => const Divider(),
-                itemBuilder: (context, index) {
-                  final item = mockScheduled[index];
-                  return ListTile(
-                    leading: const Icon(Icons.alarm_on_rounded, color: Colors.purple),
-                    title: Text(item['title']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${item['category']} • Scheduled: ${item['scheduledFor']} • By ${item['author']}'),
-                    trailing: OutlinedButton(
-                      onPressed: () {},
-                      child: const Text('Reschedule'),
-                    ),
-                  );
-                },
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      }),
     );
+  }
+
+  String _when(DateTime? at) {
+    if (at == null) return 'no date set';
+    return '${at.year}-${at.month.toString().padLeft(2, '0')}-'
+        '${at.day.toString().padLeft(2, '0')} '
+        '${at.hour.toString().padLeft(2, '0')}:'
+        '${at.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _reschedule(ArticleModel post) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: Get.context!,
+      initialDate: post.scheduledFor ?? now.add(const Duration(days: 1)),
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 365 * 3)),
+    );
+    if (picked == null) return;
+    await controller.reschedule(post, picked);
   }
 }

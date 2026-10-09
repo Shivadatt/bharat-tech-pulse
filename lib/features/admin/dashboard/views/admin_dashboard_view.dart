@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../data/models/article_model.dart';
 import '../../../../shared/responsive/responsive_grid.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../controllers/admin_dashboard_controller.dart';
@@ -31,28 +32,35 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mock banner disclaimer
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              margin: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(
-                color: Colors.amber.withAlpha(25),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.withAlpha(100)),
-              ),
-              child: Row(
-                children: const [
-                  Icon(Icons.info_outline_rounded, color: Colors.amber, size: 18),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Phase 1 Admin Mode: Live mock architecture active. Changes persist in local memory and are ready for Supabase sync.',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            // Surface a real backend error instead of silently showing zeros.
+            if (controller.errorMessage.value != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: Colors.red.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withAlpha(100)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        color: Colors.red, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        controller.errorMessage.value!,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
                     ),
-                  ),
-                ],
+                    TextButton(
+                      onPressed: controller.loadDashboardMetrics,
+                      child: const Text('Retry', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
             // Top Metric Cards (Total, Published, Drafts, Scheduled, Views)
             ResponsiveGrid(
@@ -262,34 +270,40 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Publishing Activity (Mock Stream)',
+              'Publishing Activity',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            const _ActivityItem(
-              time: '12 mins ago',
-              user: 'Aravind Sharma',
-              action: 'published',
-              target: 'Sarvam AI Unveils Open Indic LLMs',
-            ),
-            const Divider(),
-            const _ActivityItem(
-              time: '1 hour ago',
-              user: 'Priya Nambiar',
-              action: 'updated',
-              target: 'Digital Arrest Scams: How Fake CBI Video Calls Work',
-            ),
-            const Divider(),
-            const _ActivityItem(
-              time: '3 hours ago',
-              user: 'Rohit Deshmukh',
-              action: 'scheduled',
-              target: 'Best Smartphones Under ₹20,000 for October 2026',
-            ),
+            if (controller.recentArticles.isEmpty)
+              Text('No recent activity.', style: theme.textTheme.bodySmall)
+            else
+              for (final art in controller.recentArticles)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: _ActivityItem(
+                    time: DateFormatter.formatShort(art.publishedAt),
+                    user: art.author.name.isEmpty ? 'Editorial' : art.author.name,
+                    action: _statusVerb(art.status),
+                    target: art.title,
+                  ),
+                ),
           ],
         ),
       ),
     );
+  }
+
+  static String _statusVerb(ArticleStatus status) {
+    switch (status) {
+      case ArticleStatus.published:
+        return 'published';
+      case ArticleStatus.scheduled:
+        return 'scheduled';
+      case ArticleStatus.draft:
+        return 'drafted';
+      case ArticleStatus.archived:
+        return 'archived';
+    }
   }
 }
 

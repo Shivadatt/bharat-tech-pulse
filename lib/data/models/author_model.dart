@@ -9,6 +9,11 @@ class AuthorModel {
   final String twitter;
   final String linkedin;
   final String email;
+  final bool isActive;
+
+  /// `authors.user_id`: the auth account linked to this byline, when an
+  /// operator has connected a writer to a login.
+  final String? linkedUserId;
 
   const AuthorModel({
     required this.id,
@@ -20,6 +25,8 @@ class AuthorModel {
     required this.twitter,
     required this.linkedin,
     required this.email,
+    this.isActive = true,
+    this.linkedUserId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -32,6 +39,8 @@ class AuthorModel {
         'twitter': twitter,
         'linkedin': linkedin,
         'email': email,
+        'is_active': isActive,
+        'user_id': linkedUserId,
       };
 
   factory AuthorModel.fromJson(Map<String, dynamic> json) => AuthorModel(
@@ -44,5 +53,20 @@ class AuthorModel {
         twitter: json['twitter'] as String? ?? '',
         linkedin: json['linkedin'] as String? ?? '',
         email: json['email'] as String? ?? '',
+        isActive: json['is_active'] as bool? ?? true,
+      );
+
+  AuthorModel copyWith({bool? isActive}) => AuthorModel(
+        id: id,
+        slug: slug,
+        name: name,
+        role: role,
+        bio: bio,
+        avatarUrl: avatarUrl,
+        twitter: twitter,
+        linkedin: linkedin,
+        email: email,
+        isActive: isActive ?? this.isActive,
+        linkedUserId: linkedUserId,
       );
 }

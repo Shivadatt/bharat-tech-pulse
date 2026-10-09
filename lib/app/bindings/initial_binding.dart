@@ -7,16 +7,33 @@ import '../../core/seo/seo_service.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/supabase/auth_service.dart';
 import '../../core/supabase/supabase_service.dart';
+import '../../data/repositories/analytics_repository.dart';
 import '../../data/repositories/article_repository.dart';
 import '../../data/repositories/category_repository.dart';
 import '../../data/repositories/media_repository.dart';
+import '../../data/repositories/mock_analytics_repository.dart';
 import '../../data/repositories/mock_article_repository.dart';
 import '../../data/repositories/mock_category_repository.dart';
+import '../../data/repositories/mock_media_repository.dart';
+import '../../data/repositories/mock_post_admin_repository.dart';
+import '../../data/repositories/mock_profile_repository.dart';
+import '../../data/repositories/mock_redirect_repository.dart';
+import '../../data/repositories/mock_site_settings_repository.dart';
+import '../../data/repositories/mock_subscriber_repository.dart';
+import '../../data/repositories/post_admin_repository.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../data/repositories/redirect_repository.dart';
+import '../../data/repositories/site_settings_repository.dart';
+import '../../data/repositories/subscriber_repository.dart';
+import '../../data/repositories/supabase_analytics_repository.dart';
 import '../../data/repositories/supabase_article_repository.dart';
 import '../../data/repositories/supabase_category_repository.dart';
 import '../../data/repositories/supabase_media_repository.dart';
+import '../../data/repositories/supabase_post_admin_repository.dart';
 import '../../data/repositories/supabase_profile_repository.dart';
+import '../../data/repositories/supabase_redirect_repository.dart';
+import '../../data/repositories/supabase_site_settings_repository.dart';
+import '../../data/repositories/supabase_subscriber_repository.dart';
 import '../../features/admin/articles/controllers/admin_article_controller.dart';
 import '../../features/admin/auth/controllers/admin_auth_controller.dart';
 import '../config/environment_config.dart';
@@ -43,11 +60,34 @@ class InitialBinding extends Bindings {
       Get.put<CategoryRepository>(
           SupabaseCategoryRepository(), permanent: true);
       Get.put<MediaRepository>(SupabaseMediaRepository(), permanent: true);
-      Get.put<ProfileRepository>(
-          SupabaseProfileRepository(), permanent: true);
+      final profiles = SupabaseProfileRepository();
+      Get.put<ProfileRepository>(profiles, permanent: true);
+      Get.put<PostAdminRepository>(
+          SupabasePostAdminRepository(), permanent: true);
+      Get.put<AnalyticsRepository>(
+          SupabaseAnalyticsRepository(profileRepository: profiles),
+          permanent: true);
+      Get.put<RedirectRepository>(
+          SupabaseRedirectRepository(), permanent: true);
+      Get.put<SiteSettingsRepository>(
+          SupabaseSiteSettingsRepository(), permanent: true);
+      Get.put<SubscriberRepository>(
+          SupabaseSubscriberRepository(), permanent: true);
     } else {
       Get.put<ArticleRepository>(MockArticleRepository(), permanent: true);
       Get.put<CategoryRepository>(MockCategoryRepository(), permanent: true);
+      Get.put<MediaRepository>(MockMediaRepository(), permanent: true);
+      Get.put<ProfileRepository>(MockProfileRepository(), permanent: true);
+      Get.put<PostAdminRepository>(
+          MockPostAdminRepository(), permanent: true);
+      Get.put<AnalyticsRepository>(
+          MockAnalyticsRepository.withDemoData(), permanent: true);
+      Get.put<RedirectRepository>(
+          MockRedirectRepository(), permanent: true);
+      Get.put<SiteSettingsRepository>(
+          MockSiteSettingsRepository(), permanent: true);
+      Get.put<SubscriberRepository>(
+          MockSubscriberRepository(), permanent: true);
     }
 
     // Admin Controllers

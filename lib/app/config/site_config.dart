@@ -26,7 +26,11 @@ class SiteConfig {
   static const String copyrightNotice =
       '© 2026 Bharat Tech Pulse. All rights reserved. Made for Digital India.';
 
-  // SEO default image
-  static const String defaultOgImage =
-      'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+  // SEO default share image. Served from the site's own origin as a bundled
+  // static asset (web/og-default.jpg) rather than hotlinking a third-party
+  // stock photo, so every page without an article hero still points at a real
+  // site asset. Keeping it on the site origin also means lib/ stays free of
+  // the Supabase project ref, which only ever enters the build via
+  // --dart-define (see environment_config.dart).
+  static const String defaultOgImage = '$domain/og-default.jpg';
 }

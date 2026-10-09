@@ -1,19 +1,33 @@
 import 'package:get/get.dart';
+import '../../features/admin/analytics/controllers/admin_analytics_controller.dart';
+import '../../features/admin/analytics/views/admin_analytics_view.dart';
 import '../../features/admin/articles/views/admin_article_editor_view.dart';
 import '../../features/admin/articles/views/admin_articles_list_view.dart';
-import '../../features/admin/analytics/views/admin_analytics_view.dart';
 import '../../features/admin/auth/bindings/admin_auth_binding.dart';
 import '../../features/admin/auth/views/admin_login_view.dart';
+import '../../features/admin/authors/controllers/admin_authors_controller.dart';
 import '../../features/admin/authors/views/admin_authors_view.dart';
+import '../../features/admin/categories/controllers/admin_categories_controller.dart';
 import '../../features/admin/categories/views/admin_categories_view.dart';
 import '../../features/admin/dashboard/bindings/admin_dashboard_binding.dart';
 import '../../features/admin/dashboard/views/admin_dashboard_view.dart';
+import '../../features/admin/media/controllers/admin_media_controller.dart';
 import '../../features/admin/media/views/admin_media_view.dart';
+import '../../features/admin/scheduled/controllers/admin_scheduled_controller.dart';
 import '../../features/admin/scheduled/views/admin_scheduled_view.dart';
+import '../../features/admin/seo/controllers/admin_seo_controller.dart';
 import '../../features/admin/seo/views/admin_seo_view.dart';
+import '../../features/admin/settings/controllers/admin_settings_controller.dart';
 import '../../features/admin/settings/views/admin_settings_view.dart';
+import '../../features/admin/tags/controllers/admin_tags_controller.dart';
 import '../../features/admin/tags/views/admin_tags_view.dart';
+import '../../features/admin/trending/controllers/admin_trending_controller.dart';
 import '../../features/admin/trending/views/admin_trending_view.dart';
+import '../../data/repositories/analytics_repository.dart';
+import '../../data/repositories/category_repository.dart';
+import '../../data/repositories/media_repository.dart';
+import '../../data/repositories/post_admin_repository.dart';
+import '../../data/repositories/site_settings_repository.dart';
 import '../config/site_config.dart';
 import '../middleware/admin_auth_middleware.dart';
 import '../../features/articles/bindings/article_binding.dart';
@@ -239,46 +253,82 @@ class AppPages {
     GetPage(
       name: AppRoutes.adminCategories,
       page: () => const AdminCategoriesView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AdminCategoriesController(
+            categoryRepository: Get.find<CategoryRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminTags,
       page: () => const AdminTagsView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() =>
+            AdminTagsController(categoryRepository: Get.find<CategoryRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminAuthors,
       page: () => const AdminAuthorsView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AdminAuthorsController(
+            categoryRepository: Get.find<CategoryRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminMedia,
       page: () => const AdminMediaView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(
+            () => AdminMediaController(mediaRepository: Get.find<MediaRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminTrending,
       page: () => const AdminTrendingView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AdminTrendingController(
+            postAdminRepository: Get.find<PostAdminRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminScheduled,
       page: () => const AdminScheduledView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AdminScheduledController(
+            postAdminRepository: Get.find<PostAdminRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminSeo,
       page: () => const AdminSeoView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AdminSeoController(
+            siteSettingsRepository: Get.find<SiteSettingsRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminAnalytics,
       page: () => const AdminAnalyticsView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AdminAnalyticsController(
+            analyticsRepository: Get.find<AnalyticsRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminSettings,
       page: () => const AdminSettingsView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AdminSettingsController(
+            siteSettingsRepository: Get.find<SiteSettingsRepository>()));
+      }),
       middlewares: [AdminAuthMiddleware()],
     ),
   ];

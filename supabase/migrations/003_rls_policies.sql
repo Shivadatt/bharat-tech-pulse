@@ -174,7 +174,8 @@ drop policy if exists post_tags_select_public          on public.post_tags;
 drop policy if exists post_tags_insert_can_edit        on public.post_tags;
 drop policy if exists post_tags_update_can_edit        on public.post_tags;
 drop policy if exists post_tags_delete_can_edit        on public.post_tags;
-drop policy if exists media_select_public              on public.media;
+drop policy if exists media_select_public             on public.media;
+drop policy if exists media_select_site_member        on public.media;
 drop policy if exists media_insert_site_editor         on public.media;
 drop policy if exists media_update_site_editor         on public.media;
 drop policy if exists media_delete_site_editor         on public.media;
@@ -303,7 +304,12 @@ create policy categories_delete_site_admin on public.categories
 -- ---------------------------------------------------------------------------
 create policy tags_select_public on public.tags
   for select to anon, authenticated
-  using (true);
+  using (
+    exists (
+      select 1 from public.sites s
+      where s.id = tags.site_id and s.is_active
+    )
+  );
 
 create policy tags_insert_site_member on public.tags
   for insert to authenticated
@@ -424,14 +430,21 @@ create policy post_tags_delete_can_edit on public.post_tags
   using (public.can_edit_post(post_id));
 
 -- ---------------------------------------------------------------------------
--- 9. media — metadata is public (URLs are public anyway); writes are editor+
+-- 9. media — the registry is STAFF-ONLY. Delivering images to visitors never
+-- touches this table: public pages render the `public_url` text already stored
+-- on the post/author rows, and the bucket itself is public, so `/object/public/
+-- <path>` is served from the bucket flag and bypasses RLS. A `using (true)`
+-- read here therefore added nothing for visitors while letting any anon caller
+-- enumerate every object key (including assets attached only to drafts), which
+-- is exactly the bucket-listing exposure the tightened storage policy in 004
+-- closes — it would have re-opened the hole one layer up. Writes are editor+
 -- OF THE ROW'S SITE. storage_path guard kept from 002. The matching Storage
 -- object policies live in 004_storage_policies.sql (same is_site_editor gate,
 -- folder = site slug).
 -- ---------------------------------------------------------------------------
-create policy media_select_public on public.media
-  for select to anon, authenticated
-  using (true);
+create policy media_select_site_member on public.media
+  for select to authenticated
+  using (public.is_site_member(site_id));
 
 create policy media_insert_site_editor on public.media
   for insert to authenticated
@@ -474,7 +487,12 @@ create policy post_revisions_insert_can_edit on public.post_revisions
 -- ---------------------------------------------------------------------------
 create policy redirects_select_public on public.redirects
   for select to anon, authenticated
-  using (true);
+  using (
+    exists (
+      select 1 from public.sites s
+      where s.id = redirects.site_id and s.is_active
+    )
+  );
 
 create policy redirects_insert_site_member on public.redirects
   for insert to authenticated

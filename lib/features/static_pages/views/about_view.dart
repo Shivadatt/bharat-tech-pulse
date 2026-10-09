@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../data/services/mock_data_source.dart';
+import 'package:get/get.dart';
+import '../../../data/models/author_model.dart';
+import '../../../data/repositories/category_repository.dart';
 import '../../../shared/components/breadcrumb_widget.dart';
 import '../../../shared/layouts/public_scaffold.dart';
 import '../../../shared/responsive/responsive_container.dart';
@@ -75,10 +77,30 @@ class AboutView extends StatelessWidget {
               style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            for (final author in MockDataSource.authors) ...[
-              AuthorInfoWidget(author: author),
-              const SizedBox(height: 16),
-            ],
+            FutureBuilder<List<AuthorModel>>(
+              future: Get.find<CategoryRepository>().getAuthors(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final authors = snapshot.data ?? const <AuthorModel>[];
+                if (authors.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final author in authors) ...[
+                      AuthorInfoWidget(author: author),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+                );
+              },
+            ),
             const SizedBox(height: 48),
           ],
         ),

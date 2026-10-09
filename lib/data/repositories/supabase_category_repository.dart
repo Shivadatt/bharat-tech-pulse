@@ -52,11 +52,42 @@ class SupabaseCategoryRepository implements CategoryRepository {
         'linkedin': author.linkedin,
         'email': author.email,
       },
-      'is_active': true,
+      'is_active': author.isActive,
     };
     if (userId != null) row['user_id'] = userId;
     return row;
   }
+
+  /// `tags` has no counter column, so the number of posts per tag comes from an
+  /// aggregate embed over the `post_tags` junction:
+  /// `post_tags(count)` → `[{'count': N}]`.
+  static TagModel rowToTag(Map<String, dynamic> row) {
+    final junction = row['post_tags'];
+    var count = (row['count'] as num?)?.toInt() ?? 0;
+    if (junction is List && junction.isNotEmpty) {
+      final first = junction.first;
+      if (first is Map) count = (first['count'] as num?)?.toInt() ?? count;
+    }
+    return TagModel(
+      id: row['id'] as String? ?? '',
+      slug: row['slug'] as String? ?? '',
+      name: row['name'] as String? ?? '',
+      count: count,
+    );
+  }
+
+  static Map<String, dynamic> categoryToRow(CategoryModel category) => {
+        'name': category.name,
+        'slug': category.slug,
+        'description': category.description,
+        'image_url': category.imageUrl,
+        'icon_code': category.iconCode,
+        'subcategories': category.subcategories,
+        'sort_order': category.sortOrder,
+        'is_active': category.isActive,
+        'seo_title': category.seoTitle,
+        'seo_description': category.seoDescription,
+      };
 
   // ---------------------------------------------------------------------------
   // Public reads
@@ -72,6 +103,29 @@ class SupabaseCategoryRepository implements CategoryRepository {
             .eq('is_active', true)
             .order('sort_order', ascending: true);
         return rows.map((r) => CategoryModel.fromJson(r)).toList();
+      });
+
+  @override
+  Future<List<CategoryModel>> getCategoriesForAdmin() =>
+      guardPostgrest(() async {
+        final siteId = await _site.siteId;
+        final rows = await _client
+            .from('categories')
+            .select()
+            .eq('site_id', siteId)
+            .order('sort_order', ascending: true);
+        return rows.map((r) => CategoryModel.fromJson(r)).toList();
+      });
+
+  @override
+  Future<List<AuthorModel>> getAuthorsForAdmin() => guardPostgrest(() async {
+        final siteId = await _site.siteId;
+        final rows = await _client
+            .from('authors')
+            .select()
+            .eq('site_id', siteId)
+            .order('name', ascending: true);
+        return rows.map((r) => rowToAuthor(r)).toList();
       });
 
   @override
@@ -114,12 +168,16 @@ class SupabaseCategoryRepository implements CategoryRepository {
   @override
   Future<List<TagModel>> getTags() => guardPostgrest(() async {
         final siteId = await _site.siteId;
+        // Aggregate embed over the post_tags junction (see rowToTag): the
+        // `tags` table has no counter column, so the per-tag post count must
+        // come from `post_tags(count)`. A plain `.select()` left every badge
+        // at zero in the admin tag list.
         final rows = await _client
             .from('tags')
-            .select()
+            .select('id,slug,name,post_tags(count)')
             .eq('site_id', siteId)
             .order('name', ascending: true);
-        return rows.map((r) => TagModel.fromJson(r)).toList();
+        return rows.map((r) => rowToTag(r)).toList();
       });
 
   // ---------------------------------------------------------------------------

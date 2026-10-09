@@ -58,7 +58,8 @@ class ArticleController extends GetxController {
         categoryName: art.categoryName,
       );
 
-      analyticsService.trackArticleRead(art.slug, art.categorySlug);
+      analyticsService.trackArticleRead(art.slug, art.categorySlug,
+          postId: art.id);
 
       final related = await articleRepository.getRelatedArticles(art.slug, art.categorySlug);
       relatedArticles.assignAll(related);

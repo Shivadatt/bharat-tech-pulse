@@ -18,6 +18,18 @@ class MockCategoryRepository implements CategoryRepository {
   }
 
   @override
+  Future<List<CategoryModel>> getCategoriesForAdmin() async {
+    await Future.delayed(const Duration(milliseconds: 30));
+    return List.unmodifiable(_categories);
+  }
+
+  @override
+  Future<List<AuthorModel>> getAuthorsForAdmin() async {
+    await Future.delayed(const Duration(milliseconds: 30));
+    return List.unmodifiable(_authors);
+  }
+
+  @override
   Future<CategoryModel?> getCategoryBySlug(String slug) async {
     await Future.delayed(const Duration(milliseconds: 30));
     try {

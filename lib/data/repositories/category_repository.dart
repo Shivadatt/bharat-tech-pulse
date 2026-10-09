@@ -11,6 +11,15 @@ abstract class CategoryRepository {
   Future<List<TagModel>> getTags();
 
   // Admin / CRUD methods
+
+  /// Every category of the site, active or archived, in sort order. The public
+  /// [getCategories] hides inactive rows, which would make an archived
+  /// category impossible to re-enable from the CMS.
+  Future<List<CategoryModel>> getCategoriesForAdmin();
+
+  /// Every author row of the site, active or archived (same rationale).
+  Future<List<AuthorModel>> getAuthorsForAdmin();
+
   Future<CategoryModel> createCategory(CategoryModel category);
   Future<bool> updateCategory(CategoryModel category);
   Future<bool> deleteCategory(String id);

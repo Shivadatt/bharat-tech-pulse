@@ -1,0 +1,10 @@
+# Local credential / env files for the live checks. NEVER commit.
+# These are read at runtime only; no key is ever printed (see lib/config.js redaction).
+.env
+.env.local
+*.env
+.tokens
+tokens.json
+secrets*.json
+*.token
+.cache/
