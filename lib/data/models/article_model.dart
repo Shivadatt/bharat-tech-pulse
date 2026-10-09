@@ -89,6 +89,12 @@ class ArticleModel {
     this.keyTakeaways = const [],
     this.faqs = const [],
     this.toc = const [],
+    this.seoTitle = '',
+    this.seoDescription = '',
+    this.canonicalUrl = '',
+    this.ogTitle = '',
+    this.ogDescription = '',
+    this.ogImage = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -115,6 +121,12 @@ class ArticleModel {
         'key_takeaways': keyTakeaways,
         'faqs': faqs.map((f) => f.toJson()).toList(),
         'toc': toc.map((t) => t.toJson()).toList(),
+        'seo_title': seoTitle,
+        'seo_description': seoDescription,
+        'canonical_url': canonicalUrl,
+        'og_title': ogTitle,
+        'og_description': ogDescription,
+        'og_image': ogImage,
       };
 
   factory ArticleModel.fromJson(Map<String, dynamic> json) => ArticleModel(
