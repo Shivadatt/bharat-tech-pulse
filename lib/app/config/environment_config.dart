@@ -18,6 +18,21 @@ class EnvironmentConfig {
     defaultValue: 'placeholder-anon-key-public-only',
   );
 
+  /// Selects the data backend: 'mock' (default, in-memory) or 'supabase'.
+  static const String dataSource = String.fromEnvironment(
+    'DATA_SOURCE',
+    defaultValue: 'mock',
+  );
+
+  /// True when real Supabase credentials were supplied via --dart-define.
+  static bool get supabaseConfigured =>
+      !supabaseUrl.contains('placeholder') &&
+      !supabaseAnonKey.contains('placeholder');
+
+  /// Supabase mode is active only when requested AND configured. Every
+  /// default build/test keeps running against the mock repositories.
+  static bool get useSupabase => dataSource == 'supabase' && supabaseConfigured;
+
   /// API base URL if separate
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',

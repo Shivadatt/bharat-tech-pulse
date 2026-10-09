@@ -1,0 +1,31 @@
+# Supabase CLI configuration for Bharat Tech Pulse (india_tech_web)
+# Project ref: ylzwuwfhlqomjqcdrpxk (https://ylzwuwfhlqomjqcdrpxk.supabase.co)
+# Minimal local-dev config for Supabase CLI 2.x (PostgreSQL 15).
+
+project_id = "india_tech_web"
+
+[api]
+enabled = true
+port = 54321
+# Local API base URL (informational; mirrors where `supabase start` serves the API).
+site = "http://localhost:54321"
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site = "http://localhost:3000"
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"

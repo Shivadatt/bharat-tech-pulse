@@ -4,6 +4,10 @@ import '../controllers/admin_auth_controller.dart';
 class AdminAuthBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<AdminAuthController>(() => AdminAuthController());
+    // InitialBinding may have already instantiated the controller (session
+    // restore); never replace that registration or restored state is lost.
+    if (!Get.isRegistered<AdminAuthController>()) {
+      Get.lazyPut<AdminAuthController>(() => AdminAuthController());
+    }
   }
 }

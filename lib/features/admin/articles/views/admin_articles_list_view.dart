@@ -144,6 +144,7 @@ class _StatusChip extends StatelessWidget {
       ArticleStatus.published => ('Published', Colors.green),
       ArticleStatus.scheduled => ('Scheduled', Colors.orange),
       ArticleStatus.draft => ('Draft', Colors.grey),
+      ArticleStatus.archived => ('Archived', Colors.blueGrey),
     };
 
     return Container(

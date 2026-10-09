@@ -8,6 +8,7 @@ import 'app/config/site_config.dart';
 import 'app/routes/app_routes.dart';
 import 'core/platform/browser_path.dart';
 import 'core/seo/seo_service.dart';
+import 'core/supabase/supabase_service.dart';
 
 /// Paths GetX can resolve on a cold boot. Anything else is not-found:
 /// GetX resolves unmatched deep links to the home route and never mounts
@@ -56,6 +57,17 @@ bool _isKnownRoute(String path) =>
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Bootstrap Supabase when configured (DATA_SOURCE=supabase + real
+  // credentials). Any failure is logged and the app continues in mock mode.
+  try {
+    await SupabaseService.initialize();
+  } catch (e, stackTrace) {
+    debugPrint(
+      'Supabase initialization failed; continuing in mock mode. '
+      'Error: $e\n$stackTrace',
+    );
+  }
 
   // Single dependency registration point; must run before runApp so the
   // root ThemeController lookup in BharatTechApp.build succeeds.

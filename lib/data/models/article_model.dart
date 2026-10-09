@@ -1,7 +1,9 @@
 import 'author_model.dart';
 
-/// Editorial lifecycle of an article. Serialized by name in JSON.
-enum ArticleStatus { draft, scheduled, published }
+/// Editorial lifecycle of an article. Serialized by name in JSON; matches
+/// the Postgres `post_status` enum. Unknown values deserialize to
+/// [ArticleStatus.published].
+enum ArticleStatus { draft, scheduled, published, archived }
 
 class ArticleFaq {
   final String question;
@@ -56,6 +58,12 @@ class ArticleModel {
   final List<String> keyTakeaways;
   final List<ArticleFaq> faqs;
   final List<ArticleTocItem> toc;
+  final String seoTitle;
+  final String seoDescription;
+  final String canonicalUrl;
+  final String ogTitle;
+  final String ogDescription;
+  final String ogImage;
 
   const ArticleModel({
     required this.id,
