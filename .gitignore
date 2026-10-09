@@ -50,3 +50,4 @@ app.*.map.json
 
 # Regenerable demo assets for seeding (tool/make_seed_media.py output)
 .seed_media/
+.seed_media_stage/
