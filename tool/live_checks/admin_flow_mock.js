@@ -504,8 +504,8 @@ async function runFlow(mode, base) {
       publishOwn.ok && rowCount(publishOwn) === 1,
       'AU18 FINDING: author publish-by-update IS permitted by the database',
       `${ev(publishOwn)} — 003 posts_update_own_author (003:370-396) cannot compare old vs new status inside one ` +
-        'permissive WITH CHECK, so only RolePermissions.canPublish (role_permissions.dart:42-45) stops an author ' +
-        'publishing its own post. Defense-in-depth gap: the UI gate is load-bearing.'
+        'permissive WITH CHECK, and RolePermissions.canPublish (role_permissions.dart:42-45) has NO production call ' +
+        'site (see the T-finding row), so nothing between an author-tier session and a published post.'
     );
     const anonAfter = await anon.list('posts', `select=id&slug=eq.${ownDraftSlug}`);
     rep.check(anonAfter.ok && rowCount(anonAfter) === 1, 'AU19 and that transition is immediately public (the gap has a visible effect)', ev(anonAfter));
@@ -620,6 +620,7 @@ function staticPlane(rep) {
   const siteConfig = read(SRC.siteConfig);
   const profileRepo = read(SRC.profileRepo);
   const scaffold = read(SRC.scaffold);
+  const editorView = read(SRC.articleEditorView);
   const pages = read(SRC.appPages);
   const binding = read(SRC.initialBinding);
   const rolePerms = read(SRC.rolePermissions);
@@ -668,6 +669,41 @@ function staticPlane(rep) {
   check(/Get\.put<PostAdminRepository>[\s\S]{0,80}SupabasePostAdminRepository/.test(binding), 'CMS uses SupabasePostAdminRepository', 'initial_binding.dart:74-75');
   check(/unawaited\(Get\.find<AdminAuthController>\(\)\.restoreSession\(\)\)/.test(binding), 'cold-boot restore runs unawaited (routing trusts the persisted session)', 'initial_binding.dart:125');
   check(/static bool canPublish\(AdminRole role\)/.test(rolePerms) && /role == AdminRole\.editor/.test(rolePerms), 'author tier cannot publish in the UI layer', 'role_permissions.dart:42-45');
+
+  /* ---- measured findings (INFO, never asserted PASS) ---- */
+  const all = dartFiles();
+  const callersOf = (method) =>
+    all
+      .filter((f) => !/role_permissions\.dart$/.test(f))
+      .filter((f) => new RegExp(`RolePermissions\\.${method}\\b`).test(read(f)))
+      .map((f) => path.relative(REPO, f).replace(/\\/g, '/'));
+  const dead = ['canPublish', 'canManageContent', 'canManageSettings'].map((m) => `${m}=${callersOf(m).length || 'NO CALL SITE'}`).join(' ');
+  rep.info(
+    'T-finding production callers of the role gates',
+    `${dead} — only canViewReports is wired (supabase_analytics_repository.dart:109-110). The UI gate the ` +
+      'migration comment relies on for AU18 does not exist outside unit tests.'
+  );
+  const publishBtn = /saveArticle\(\s*newStatus:\s*'published'\s*\)/.test(editorView);
+  rep.info(
+    'T-finding editor Publish affordance',
+    publishBtn
+      ? `present (admin_article_editor_view.dart:54) and shown to every signed-in role: the view contains ` +
+        `${/canPublish|RolePermissions/.test(editorView) ? 'a role check' : 'NO role check'}`
+      : 'no unconditional publish button matched in the editor view'
+  );
+  const loginChunk = pageChunks.find((chunk) => /name:\s*AppRoutes\.adminLogin/.test(chunk)) || '';
+  check(
+    loginChunk.length > 0 && !/AdminAuthMiddleware/.test(loginChunk),
+    'T the login route itself is reachable without the guard',
+    'app_pages.dart:227-231 — /admin/login carries no middleware (correct: it is the redirect target)'
+  );
+  check(
+    !/auth\.isLoggedIn\.value[\s\S]{0,80}AppRoutes\.admin\b/.test(middleware),
+    'T FINDING: no reverse guard sends a still-signed session out of the login page',
+    'admin_auth_middleware.dart:15-26 only redirects when isLoggedIn is false, so the navigation-only Logout ' +
+      'screen does not stop a Back navigation (or a reload of /admin/dashboard, via restoreSession) from ' +
+      'returning to the CMS with the same live token'
+  );
 }
 
 /* ------------------------------------------------------------------ *
