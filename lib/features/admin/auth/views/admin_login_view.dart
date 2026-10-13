@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/config/environment_config.dart';
 import '../../../../app/config/site_config.dart';
 import '../controllers/admin_auth_controller.dart';
 
@@ -120,15 +121,17 @@ class AdminLoginView extends GetView<AdminAuthController> {
                         ),
                       );
                     }),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Demo CMS — sign-in is mocked and grants no real access.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.textTheme.bodySmall?.color,
-                        fontSize: 11,
+                    if (!EnvironmentConfig.useSupabase) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Demo CMS — sign-in is mocked and grants no real access.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.textTheme.bodySmall?.color,
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 8),
                     Center(
                       child: TextButton(

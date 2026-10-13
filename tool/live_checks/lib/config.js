@@ -13,6 +13,12 @@
  *     parsing it — the value is never duplicated into this source tree.
  *   * Every value that looks like a credential is redacted from all output and
  *     from error messages; identities are printed only as `sha256:<first8>`.
+ *   * The admin credential PAIR (SUPABASE_ADMIN_EMAIL / SUPABASE_ADMIN_PASSWORD
+ *     and their ADMIN_EMAIL / ADMIN_PASSWORD aliases) follows the same loader
+ *     and the same rules, plus two more: the password is only ever reported as
+ *     presence + length, and it is never handed to a build (`--dart-define`),
+ *     a shell argument, a fixture or a file — it exists to be typed into the
+ *     browser login form or consumed by a sign-in call, nothing else.
  */
 
 const fs = require('fs');
@@ -42,6 +48,18 @@ const ENV_SLOTS = {
   /** Optional: token of an account that is admin/editor of india_tech ONLY
    *  (never super_admin) — used for the strict cross-site isolation test. */
   siteAdminToken: ['SUPABASE_SITE_ADMIN_TOKEN', 'RLS_SITE_ADMIN_TOKEN'],
+  /** Email/ID of the operator-created admin account (from
+   *  Authentication -> Users, then promoted by
+   *  supabase/operator/010_bootstrap_first_admin.sql). An identifier, not a
+   *  secret, but it is masked in every report line (see maskEmail). */
+  adminEmail: ['SUPABASE_ADMIN_EMAIL', 'ADMIN_EMAIL'],
+  /** Password of that same account, for a real `signInWithPassword` run.
+   *  HARD RULES: read from the environment or the git-ignored local .env ONLY;
+   *  never printed (presence + length only, see credentialPresence); pushed
+   *  into cfg.secrets so redact() masks it inside any error body, report row or
+   *  fingerprint path; never written to disk, never used as a fixture value and
+   *  never passed to a build (--dart-define) or a shell argument. */
+  adminPassword: ['SUPABASE_ADMIN_PASSWORD', 'ADMIN_PASSWORD'],
   /** Slug of a SECOND, operator-created temporary site used to prove
    *  cross-site isolation. Must match /^zzz-check/. */
   secondSiteSlug: ['CHECK_SECOND_SITE_SLUG', 'SECOND_SITE_SLUG'],
@@ -49,6 +67,12 @@ const ENV_SLOTS = {
   adminSiteSlug: ['CHECK_ADMIN_SITE_SLUG'],
   /** '0' disables the throwaway-signup fallback for the reader plane. */
   allowSignup: ['ALLOW_THROWAWAY_SIGNUP'],
+  /** Optional PUBLIC build-time keys for the production web bundle. Neither
+   *  is a credential: a GA4 measurement id and a Search Console verification
+   *  token both ship to every browser. They live here so exactly one loader
+   *  reads tool/live_checks/.env. */
+  gaMeasurementId: ['GA_MEASUREMENT_ID'],
+  googleSiteVerification: ['GOOGLE_SITE_VERIFICATION'],
 };
 
 function firstEnv(slots) {
@@ -143,6 +167,11 @@ function resolveSlot(slot) {
 
 const JWT_RE = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}/g;
 
+/** Shortest credential string worth masking. Deliberately below 12 so a short
+ *  admin password is still redacted everywhere (a 9-char password is the case
+ *  a >=12 threshold would silently leak). */
+const MIN_REDACT_LEN = 6;
+
 function fingerprint(value) {
   if (!value) return 'sha256:00000000';
   return 'sha256:' + crypto.createHash('sha256').update(String(value)).digest('hex').slice(0, 8);
@@ -153,9 +182,20 @@ function redact(text, secrets = []) {
   let out = String(text == null ? '' : text);
   out = out.replace(JWT_RE, (m) => `[jwt ${fingerprint(m)}]`);
   for (const s of secrets) {
-    if (s && s.length >= 12) out = out.split(s).join(`[secret ${fingerprint(s)}]`);
+    if (s && String(s).length >= MIN_REDACT_LEN) out = out.split(s).join(`[secret ${fingerprint(s)}]`);
   }
   return out;
+}
+
+/** `admin@gmail.com` -> `ad***@gmail.com`: enough to disambiguate two accounts
+ *  without printing an operator's address verbatim into a report. */
+function maskEmail(email) {
+  const s = String(email == null ? '' : email).trim();
+  if (!s) return '';
+  const at = s.indexOf('@');
+  if (at < 1) return `${s.slice(0, 1)}***`;
+  const local = s.slice(0, at);
+  return `${local.slice(0, Math.min(2, local.length))}***${s.slice(at)}`;
 }
 
 /** Never let a response body leak a credential into the console. */
@@ -201,9 +241,15 @@ function load({ required = true } = {}) {
     adminTokenSource: resolveSlot('adminToken').source,
     readerToken: resolveSlot('readerToken').value,
     siteAdminToken: resolveSlot('siteAdminToken').value,
+    adminEmail: resolveSlot('adminEmail').value,
+    adminEmailSource: resolveSlot('adminEmail').source,
+    adminPassword: resolveSlot('adminPassword').value,
+    adminPasswordSource: resolveSlot('adminPassword').source,
     secondSiteSlug: resolveSlot('secondSiteSlug').value,
     adminSiteSlug: resolveSlot('adminSiteSlug').value,
     allowThrowawaySignup: (resolveSlot('allowSignup').value || '1') !== '0',
+    gaMeasurementId: resolveSlot('gaMeasurementId').value || '',
+    googleSiteVerification: resolveSlot('googleSiteVerification').value || '',
     dartConfigFile: DART_CONFIG_FILE,
     secrets: [],
   };
@@ -214,13 +260,105 @@ function load({ required = true } = {}) {
     .filter(([name, value]) =>
       /(^|_)(KEY|TOKEN|SECRET|PASSWORD|PWD|SERVICE_ROLE)(_|$)/i.test(name) &&
       value &&
-      value.length >= 12
+      value.length >= MIN_REDACT_LEN
     )
     .map(([, value]) => value);
-  cfg.secrets = [cfg.anonKey, cfg.adminToken, cfg.readerToken, cfg.siteAdminToken]
+  cfg.secrets = [
+    cfg.anonKey,
+    cfg.adminToken,
+    cfg.readerToken,
+    cfg.siteAdminToken,
+    // The admin password is redacted unconditionally: a short one is exactly
+    // the value a length filter would otherwise let through.
+    cfg.adminPassword,
+  ]
     .filter(Boolean)
     .concat(credLikeEnv);
+
+  // WHY non-enumerable: `cfg` necessarily holds the raw password so a sign-in
+  // call can use it, and audit showed the only remaining leak path is whole
+  // object printing (`JSON.stringify(cfg)` / `console.log(cfg)`), which skip
+  // non-enumerable own properties. Direct reads (cfg.adminPassword) still work.
+  if (cfg.adminPassword) {
+    Object.defineProperty(cfg, 'adminPassword', {
+      value: cfg.adminPassword,
+      enumerable: false,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(cfg, 'adminPasswordSource', {
+      value: cfg.adminPasswordSource,
+      enumerable: false,
+      writable: true,
+      configurable: true,
+    });
+  }
+  // Same reasoning for the redaction list itself: cfg.secrets holds RAW values
+  // (every slot plus every credential-shaped env var of the shell), so it must
+  // be invisible to whole-object printing while staying a live array that
+  // callers can push ephemeral tokens into (`cfg.secrets.push(...)`).
+  Object.defineProperty(cfg, 'secrets', {
+    value: cfg.secrets,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  });
   return cfg;
+}
+
+/** Presence + length ONLY — never the value. Used by every report header.
+ *  The returned rows carry no raw credential at all: `fingerprint` for secrets,
+ *  `display` for things that are safe to show (project URL, masked email). */
+function credentialPresence(cfg) {
+  const rows = [
+    { name: 'SUPABASE_URL', value: cfg.url, secret: false },
+    { name: 'SUPABASE_ANON_KEY', value: cfg.anonKey, secret: true },
+    { name: 'SUPABASE_ADMIN_TOKEN', value: cfg.adminToken, secret: true },
+    { name: 'SUPABASE_READER_TOKEN', value: cfg.readerToken, secret: true },
+    { name: 'SUPABASE_SITE_ADMIN_TOKEN', value: cfg.siteAdminToken, secret: true },
+    { name: 'SUPABASE_ADMIN_EMAIL', value: cfg.adminEmail, secret: false, mask: true },
+    { name: 'SUPABASE_ADMIN_PASSWORD', value: cfg.adminPassword, secret: true },
+  ];
+  return rows.map((r) => ({
+    name: r.name,
+    present: !!r.value,
+    length: r.value ? String(r.value).length : 0,
+    fingerprint: r.secret && r.value ? fingerprint(r.value) : null,
+    display: !r.secret && r.value ? (r.mask ? maskEmail(r.value) : String(r.value)) : null,
+  }));
+}
+
+/** One-line, print-safe rendering for report headers. */
+function credentialSummary(cfg) {
+  return credentialPresence(cfg)
+    .map((r) =>
+      r.present
+        ? `${r.name.padEnd(24)} present (length ${String(r.length).padEnd(3)}) ${
+            r.fingerprint ? r.fingerprint : r.display
+          }`
+        : `${r.name.padEnd(24)} absent`
+    )
+    .join('\n');
+}
+
+/** True only when both halves of the admin credential pair are available. */
+function hasAdminCredentials(cfg) {
+  return !!(cfg && cfg.adminEmail && cfg.adminPassword);
+}
+
+/** Honest reason a live admin sign-in cannot run, or null when it can. */
+function adminCredentialBlock(cfg) {
+  if (!hasAdminCredentials(cfg)) {
+    return (
+      'no admin credential pair: set SUPABASE_ADMIN_EMAIL + SUPABASE_ADMIN_PASSWORD ' +
+      `in the environment or the git-ignored ${path.relative(REPO_ROOT, LOCAL_ENV_FILE)} ` +
+      '(the password is read from there ONLY, reported as presence+length, never printed)'
+    );
+  }
+  if (String(cfg.adminPassword).length < 6) {
+    return 'SUPABASE_ADMIN_PASSWORD is shorter than 6 characters — almost certainly a copy/paste error, refusing to attempt a live sign-in';
+  }
+  return null;
 }
 
 /** Which key/identity is in play — printed as fingerprints only. */
@@ -233,6 +371,13 @@ function identitySummary(cfg) {
     line('admin token', cfg.adminToken),
     line('reader token', cfg.readerToken),
     line('site-admin tok', cfg.siteAdminToken),
+    `admin email      ${cfg.adminEmail ? maskEmail(cfg.adminEmail) : 'NOT PROVIDED'}`,
+    // presence + length ONLY; the value itself is never interpolated anywhere.
+    `admin password   ${
+      cfg.adminPassword
+        ? `present (length ${String(cfg.adminPassword).length}, ${fingerprint(cfg.adminPassword)}, source ${cfg.adminPasswordSource || 'env'})`
+        : 'NOT PROVIDED'
+    }`,
   ].join('\n');
 }
 
@@ -284,13 +429,19 @@ const TABLES = [
   'analytics_events',
 ];
 
-/** Tables the RLS design says anon must NOT be able to read. */
+/** Tables the RLS design says anon must NOT be able to read.
+ *  `media` belongs here since the 003/004 tightening: media_select_site_member is
+ *  `to authenticated`, so an anonymous metadata read is the failure we are looking
+ *  for (live-verified 2026-10-13). Public IMAGES are still served, straight from
+ *  storage.objects through the /object/public/media/ path — that is proven by the
+ *  G-storage checks, not by a PostgREST media read. */
 const ANON_DENIED_READ = [
   'subscribers',
   'post_revisions',
   'analytics_events',
   'profiles',
   'profile_sites',
+  'media',
 ];
 
 /** Known non-public seed rows (ground truth read from 006_seed_data.sql).
@@ -325,6 +476,7 @@ module.exports = {
   LOCAL_ENV_FILE,
   DART_CONFIG_FILE,
   ENV_SLOTS,
+  MIN_REDACT_LEN,
   TABLES,
   ANON_DENIED_READ,
   KNOWN_SEED_FIXTURES,
@@ -336,6 +488,11 @@ module.exports = {
   redact,
   redactObject,
   fingerprint,
+  maskEmail,
+  credentialPresence,
+  credentialSummary,
+  hasAdminCredentials,
+  adminCredentialBlock,
   identitySummary,
   isWritableSiteSlug,
   isTempCheckSiteSlug,

@@ -47,16 +47,7 @@ class ArticleController extends GetxController {
       article.value = art;
 
       // Update SEO and Analytics
-      seoService.updateArticleMeta(
-        title: art.title,
-        excerpt: art.excerpt,
-        slug: art.slug,
-        authorName: art.author.name,
-        publishedAt: art.publishedAt,
-        updatedAt: art.updatedAt,
-        featuredImage: art.featuredImage,
-        categoryName: art.categoryName,
-      );
+      seoService.updateArticleSeo(art);
 
       analyticsService.trackArticleRead(art.slug, art.categorySlug,
           postId: art.id);

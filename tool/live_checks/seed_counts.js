@@ -37,7 +37,7 @@ const EXPECT = [
   { table: 'posts', filter: `status=eq.scheduled&scheduled_for=gt.${NOW_ISO}`, min: 3, label: 'future-scheduled posts', staff: true },
   { table: 'posts', filter: 'status=eq.archived', min: 2, label: 'archived posts', staff: true },
   { table: 'posts', filter: 'select=*', min: 24, label: 'total posts', staff: true },
-  { table: 'media', filter: 'select=*', min: 6, label: 'media rows', staff: false },
+  { table: 'media', filter: 'select=*', min: 6, label: 'media rows', staff: true },
   { table: 'post_revisions', filter: 'select=*', min: 4, label: 'post revisions', staff: true },
   { table: 'redirects', filter: 'select=*', min: 3, label: 'redirects', staff: false },
   { table: 'subscribers', filter: 'select=*', min: 6, label: 'subscribers', staff: true },

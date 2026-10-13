@@ -49,6 +49,9 @@ const db = {
   authors: Array.from({ length: 4 }, (_, i) => ({
     id: `00000000-0000-4000-8000-0000000002${String(i + 1).padStart(2, '0')}`,
     site_id: SITE, slug: `author-${i}`, name: `Author ${i}`, is_active: true,
+    // `authors.user_id` is what `is_linked_author()` / `can_edit_post()` join on
+    // (002_auth_and_roles.sql). Only byline #1 is claimed by a login here.
+    user_id: i === 0 ? 'author-profile-id' : null,
   })),
   tags: Array.from({ length: 24 }, (_, i) => ({
     id: `00000000-0000-4000-8000-0000000003${String(i + 1).padStart(2, '0')}`,
@@ -104,13 +107,15 @@ const db = {
     site_id: SITE, event_type: i % 3 === 0 ? 'page_view' : 'article_view', session_id: `seed-${i}`, post_id: 'p1',
   })),
   profiles: [
-    { id: 'admin-profile-id', role: 'super_admin', email: 'owner@example.com' },
-    { id: 'reader-profile-id', role: 'author', email: 'zzz-check-reader@example.com' },
-    { id: 'siteadmin-profile-id', role: 'author', email: 'site-admin@example.com' },
+    { id: 'admin-profile-id', role: 'super_admin', email: 'owner@example.com', is_active: true, full_name: 'Platform owner' },
+    { id: 'reader-profile-id', role: 'author', email: 'zzz-check-reader@example.com', is_active: true, full_name: 'Plain reader' },
+    { id: 'siteadmin-profile-id', role: 'author', email: 'site-admin@example.com', is_active: true, full_name: 'Site editor' },
+    { id: 'author-profile-id', role: 'author', email: 'author@example.com', is_active: true, full_name: 'Byline author' },
   ],
   profile_sites: [
     { profile_id: 'admin-profile-id', site_id: SITE, role: 'admin', is_active: true },
     { profile_id: 'siteadmin-profile-id', site_id: SITE, role: 'admin', is_active: true },
+    { profile_id: 'author-profile-id', site_id: SITE, role: 'author', is_active: true },
   ],
 };
 
@@ -128,11 +133,31 @@ const storage = new Map();
 const ADMIN_T = 'mock-admin-token';
 const READER_T = 'mock-reader-token';
 const SITE_ADMIN_T = 'mock-site-admin-token';
+const AUTHOR_T = 'mock-author-token';
+
+const AUTHOR_BYLINE = '00000000-0000-4000-8000-000000000201';
+
+/* Mock sign-in table. These emails and tokens are LOCAL PLACEHOLDERS, not
+ * credentials: they name the four RLS tiers the app can end up in and exist so
+ * admin_flow_mock.js can exercise the real AdminLoginView -> AuthService.signIn
+ * -> token -> PostgREST sequence without any live project. The emulator checks
+ * that the email is one of these and that SOME password was sent; it never
+ * compares a password value, so no password literal exists in this repo. */
+const MOCK_IDENTITIES = [
+  { email: 'mock-admin@btp.test', tier: 'super_admin', profile_id: 'admin-profile-id', token: ADMIN_T },
+  { email: 'mock-editor@btp.test', tier: 'site_admin', profile_id: 'siteadmin-profile-id', token: SITE_ADMIN_T },
+  { email: 'mock-author@btp.test', tier: 'site_author', profile_id: 'author-profile-id', token: AUTHOR_T },
+  { email: 'mock-reader@btp.test', tier: 'reader_no_membership', profile_id: 'reader-profile-id', token: READER_T },
+];
+const identityByToken = (token) => MOCK_IDENTITIES.find((i) => i.token === token) || null;
+const identityByEmail = (email) =>
+  MOCK_IDENTITIES.find((i) => i.email === String(email || '').trim().toLowerCase()) || null;
 
 function roleOf(req) {
   const a = String(req.headers.authorization || '');
   if (a.includes(ADMIN_T)) return 'admin';
   if (a.includes(SITE_ADMIN_T)) return 'siteadmin';
+  if (a.includes(AUTHOR_T)) return 'author';
   if (a.includes(READER_T)) return 'reader';
   return 'anon';
 }
@@ -147,6 +172,15 @@ function select(table, role) {
     case 'posts':
       if (role === 'admin') return rows;
       if (role === 'siteadmin') return rows.filter(staffOfSite1);
+      // posts_select_staff author branch: is_linked_author(author_id) AND
+      // is_site_member(site_id) — the caller's own byline only, so another
+      // author's or an unattributed draft stays invisible (invariants 2 + 3).
+      if (role === 'author') {
+        if (LEAK) return rows;
+        return rows.filter(
+          (p) => pubVisible(p) || (p.author_id === AUTHOR_BYLINE && p.site_id === SITE)
+        );
+      }
       return LEAK && role === 'reader' ? rows : rows.filter((p) => pubVisible(p) || (LEAK && p.status === 'draft' && role === 'anon'));
     case 'categories':
     case 'authors':
@@ -159,14 +193,36 @@ function select(table, role) {
       if (role === 'admin') return rows;
       if (role === 'reader') return [rows.find((p) => p.id === 'reader-profile-id')].filter(Boolean);
       if (role === 'siteadmin') return [rows.find((p) => p.id === 'siteadmin-profile-id')].filter(Boolean);
+      if (role === 'author') return [rows.find((p) => p.id === 'author-profile-id')].filter(Boolean);
       return LEAK ? rows : [];
     case 'profile_sites':
       if (role === 'admin') return rows;
-      return role === 'siteadmin' ? rows.filter((r) => r.profile_id === 'siteadmin-profile-id') : [];
+      if (role === 'siteadmin') return rows.filter((r) => r.profile_id === 'siteadmin-profile-id');
+      if (role === 'author') return rows.filter((r) => r.profile_id === 'author-profile-id');
+      return [];
     case 'subscribers':
-    case 'post_revisions':
     case 'analytics_events':
       return role === 'admin' || role === 'siteadmin' ? rows : [];
+    case 'post_revisions':
+      // post_revisions_select_can_edit: site editors+ , or the linked author of
+      // the parent post. Nothing for anon/reader.
+      if (role === 'admin' || role === 'siteadmin') return rows;
+      if (role === 'author') {
+        if (LEAK) return rows;
+        return rows.filter((r) => {
+          const parent = (db.posts || []).find((p) => p.id === r.post_id);
+          return !!parent && parent.author_id === AUTHOR_BYLINE;
+        });
+      }
+      return [];
+    case 'media':
+      // Mirrors the live tightening: media metadata SELECT is `to authenticated`
+      // and site-scoped, so neither anon nor a plain reader may list it.
+      // Publicly served image BYTES come from /object/public/media/<path>, which
+      // the storage planes check separately.
+      // media_select_site_member is is_site_member(site_id), which the author
+      // tier satisfies, so an author reads metadata but edits nothing.
+      return role === 'admin' || role === 'siteadmin' || role === 'author' ? rows : [];
     case 'sites':
       return rows.filter((s) => s.is_active || role === 'admin' || role === 'siteadmin');
     default:
@@ -191,13 +247,64 @@ function checkWith(table, body, role) {
     return null;
   }
   if (role === 'reader') return 'reader has no membership -> no write policy matches';
-  if (table === 'posts' && role === 'admin') return null;
-  // site-scoped staff: editor of india_tech ONLY (cross-site writes denied)
-  if (table === 'posts' && role === 'siteadmin') {
-    return body.site_id === SITE ? null : `is_site_editor(${body.site_id}) is false for this profile`;
+  if (table === 'posts') {
+    if (role === 'admin') return null;
+    if (role === 'siteadmin') {
+      return body.site_id === SITE ? null : `is_site_editor(${body.site_id}) is false for this profile`;
+    }
+    if (role === 'author') {
+      if (MODE === 'leaky') return null;
+      // posts_insert_staff author branch: site member + own linked byline +
+      // status = 'draft'. Filing anything as published is an editorial call.
+      if (body.site_id !== SITE) return 'is_site_member(site_id) is false';
+      if (body.author_id !== AUTHOR_BYLINE) return 'is_linked_author(author_id) is false (byline belongs to another account)';
+      if (body.status !== 'draft') return `author tier may only file status='draft' (got '${body.status}')`;
+      return null;
+    }
+    return 'no INSERT policy matches';
+  }
+  if (table === 'post_revisions') {
+    if (role === 'admin' || role === 'siteadmin') return null;
+    if (role === 'author') {
+      const parent = db.posts.find((p) => p.id === body.post_id);
+      if (MODE === 'leaky') return null;
+      return parent && parent.author_id === AUTHOR_BYLINE
+        ? null
+        : `can_edit_post(${body.post_id}) is false (not your byline, not an editor)`;
+    }
+    return 'no INSERT policy matches';
   }
   if (role !== 'admin') return 'no policy matches';
   return null;
+}
+
+/** RLS UPDATE `USING` per row. `match()` already narrowed by the client filter;
+ *  this is the policy layer, which silently EXCLUDES rows instead of raising. */
+function updateAllowed(table, row, role) {
+  if (MODE === 'leaky') return true;
+  if (table === 'posts') {
+    if (role === 'admin') return true;
+    if (role === 'siteadmin') return row.site_id === SITE;
+    // posts_update_own_author: own linked byline on a site they belong to.
+    if (role === 'author') return row.author_id === AUTHOR_BYLINE && row.site_id === SITE;
+    return false;
+  }
+  if (table === 'subscribers' || table === 'analytics_events') return false;
+  if (role === 'admin') return true;
+  if (role === 'siteadmin') return row.site_id === SITE;
+  return false;
+}
+
+/** RLS DELETE `USING` per row: every *_delete_* policy in 003 is site-admin or
+ *  super-admin scoped, so the author tier deletes nothing. */
+function deleteAllowed(table, row, role) {
+  if (MODE === 'leaky') return true;
+  if (table === 'subscribers' || table === 'analytics_events' || table === 'post_revisions') {
+    return false;
+  }
+  if (role === 'admin') return true;
+  if (role === 'siteadmin') return row.site_id === SITE;
+  return false;
 }
 
 function send(res, status, body, headers = {}) {
@@ -274,10 +381,20 @@ const server = http.createServer(async (req, res) => {
       if (table === 'profiles' || table === 'profile_sites') {
         return send(res, 403, { code: '42501', message: `permission denied (no UPDATE policy on ${table})` });
       }
+      // 003 gives post_revisions SELECT + INSERT only: a revision snapshot is
+      // immutable history, so an UPDATE must change nothing.
+      if (table === 'post_revisions') {
+        return send(res, 200, [], { 'content-range': '*/0' });
+      }
       if (role === 'anon' || (role === 'reader' && !(MODE === 'leaky' && table === 'posts'))) {
         return send(res, 403, { code: '42501', message: 'permission denied for update' });
       }
-      const hits = db[table].filter(match).map((r) => Object.assign(r, body));
+      // RLS UPDATE filters per row: non-matching rows are silently excluded
+      // (0 rows returned), they do not raise — mirroring PostgREST, so a caller
+      // can never tell "denied" from "not yours" and cross-site probing gains
+      // nothing.
+      const updatable = (row) => updateAllowed(table, row, role);
+      const hits = db[table].filter(match).filter(updatable).map((r) => Object.assign(r, body));
       return send(res, 200, hits, { 'content-range': `0-${Math.max(hits.length, 1) - 1}/${hits.length}` });
     }
 
@@ -285,7 +402,7 @@ const server = http.createServer(async (req, res) => {
       if (role === 'anon' || role === 'reader') {
         return send(res, 204, undefined, { 'content-range': '*/0' });
       }
-      const keep = db[table].filter((r) => !match(r));
+      const keep = db[table].filter((r) => !(match(r) && deleteAllowed(table, r, role)));
       const removed = db[table].length - keep.length;
       db[table] = keep;
       return send(res, 204, undefined, { 'content-range': `0-${Math.max(removed, 1) - 1}/${removed}` });
@@ -328,6 +445,10 @@ const server = http.createServer(async (req, res) => {
       const folder = path.split('/')[0];
       if (role === 'anon') return send(res, 400, { statusCode: '401', message: 'Unauthorized: invalid key or no policy' });
       if (role === 'reader') return send(res, 400, { statusCode: '403', message: 'The resource is already not exists (policy: media_site_editor_insert)' });
+      // 004_storage_policies.sql gates object writes on is_site_editor(), the same
+      // gate as media_insert_site_editor (003:449) — the author tier is a site
+      // MEMBER, not a site EDITOR, so its upload is refused.
+      if (role === 'author' && MODE !== 'leaky') return send(res, 400, { statusCode: '403', message: 'new row violates row-level security policy (media_insert_site_editor: is_site_editor is false)' });
       if (folder !== 'india_tech') return send(res, 400, { statusCode: '403', message: 'new row violates row-level security policy' });
       storage.set(path, raw);
       return send(res, 200, { Key: path, Id: 'obj-' + path });
@@ -345,7 +466,25 @@ const server = http.createServer(async (req, res) => {
     return send(res, 422, { error_description: 'Signups not allowed for this project' });
   }
   if (url.pathname === '/auth/v1/token' && req.method === 'POST') {
-    return send(res, 400, { error_description: 'Invalid Login Credentials' });
+    // Same shape as GoTrue's password grant, which is what
+    // AuthService.signIn -> signInWithPassword consumes.
+    const hit = identityByEmail(body.email);
+    if (!hit || !String(body.password || '')) {
+      return send(res, 400, { error_description: 'Invalid Login Credentials' });
+    }
+    return send(res, 200, {
+      access_token: hit.token,
+      token_type: 'bearer',
+      expires_in: 3600,
+      user: { id: hit.profile_id, email: hit.email, role: 'authenticated' },
+    });
+  }
+  /* ---- emulator introspection (LOCAL ONLY, never a live endpoint) ----
+   *  Lets admin_flow_mock.js discover the mock tiers instead of duplicating
+   *  the identity table; it exposes emails and tiers, and deliberately NOT the
+   *  bearer tokens, so every caller has to go through the sign-in path. */
+  if (url.pathname === '/mock/v1/identities') {
+    return send(res, 200, MOCK_IDENTITIES.map(({ email, tier, profile_id }) => ({ email, tier, profile_id })));
   }
 
   return send(res, 404, { message: 'not found' });
@@ -442,6 +581,9 @@ function runScript(script, base, tokens) {
     'SUPABASE_READER_TOKEN', 'RLS_READER_ACCESS_TOKEN', 'SUPABASE_SITE_ADMIN_TOKEN',
     'RLS_SITE_ADMIN_TOKEN', 'CHECK_SECOND_SITE_SLUG', 'SECOND_SITE_SLUG',
     'CHECK_ADMIN_SITE_SLUG', 'MOCK_MODE', 'PORT', 'ALLOW_THROWAWAY_SIGNUP',
+    // A real operator password must never cross into a child that is pointed
+    // at the 127.0.0.1 emulator, even though the emulator ignores it.
+    'SUPABASE_ADMIN_EMAIL', 'ADMIN_EMAIL', 'SUPABASE_ADMIN_PASSWORD', 'ADMIN_PASSWORD',
   ]) delete env[k];
   env.SUPABASE_URL = base;
   env.SUPABASE_ANON_KEY = 'mock-anon-key';

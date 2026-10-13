@@ -43,6 +43,14 @@ import '../theme/theme_controller.dart';
 class InitialBinding extends Bindings {
   @override
   void dependencies() {
+    // Fail-safe production guard. Runs BEFORE any repository is registered so
+    // a production/release artifact can never boot on mock content: it throws
+    // with the exact --dart-define invocation instead. Debug runs and
+    // `flutter test` are unaffected (see EnvironmentConfig.mockDataAllowed).
+    EnvironmentConfig.ensureSafeDataSource(
+      supabaseInitialized: SupabaseService.initialized,
+    );
+
     // Core Services
     Get.put<StorageService>(StorageService(), permanent: true);
     Get.put<ThemeController>(ThemeController(), permanent: true);
@@ -50,8 +58,9 @@ class InitialBinding extends Bindings {
     Get.put<AnalyticsService>(AnalyticsService(), permanent: true);
 
     // Repository Inversion of Control. Supabase repositories register only
-    // when the backend was actually initialized; every default build/test
-    // keeps the in-memory mocks so the site always boots.
+    // when the backend was actually initialized; development builds and tests
+    // keep the in-memory mocks. A production/release build that could not
+    // reach Supabase has already thrown above.
     final useSupabase = EnvironmentConfig.useSupabase && SupabaseService.initialized;
     if (useSupabase) {
       Get.lazyPut<AuthService>(() => AuthService(), fenix: true);
@@ -74,6 +83,16 @@ class InitialBinding extends Bindings {
       Get.put<SubscriberRepository>(
           SupabaseSubscriberRepository(), permanent: true);
     } else {
+      // Defence in depth: `ensureSafeDataSource` above already rejects every
+      // non-Supabase production/release configuration, so this mock branch is
+      // statically unreachable there and dart2js can drop the in-memory
+      // fixtures from the shipped bundle. Debug runs and `flutter test` keep
+      // them, because EnvironmentConfig.mockDataAllowed folds to `true`.
+      if (!EnvironmentConfig.mockDataAllowed) {
+        throw StateError(
+          'Refusing to register mock repositories in a production build.',
+        );
+      }
       Get.put<ArticleRepository>(MockArticleRepository(), permanent: true);
       Get.put<CategoryRepository>(MockCategoryRepository(), permanent: true);
       Get.put<MediaRepository>(MockMediaRepository(), permanent: true);

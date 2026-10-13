@@ -9,5 +9,11 @@ class SeoDom {
     required String ogSiteName,
     required String twitterHandle,
     Map<String, dynamic>? jsonLd,
+    Map<String, String> properties = const {},
+    Map<String, String> names = const {},
   }) {}
+
+  static void setGoogleSiteVerification(String value) {}
+
+  static void clearPrerenderedContent() {}
 }

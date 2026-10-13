@@ -47,7 +47,9 @@
 --                  archived, future: E of row's site, or
 --                  own byline N (member of that site)     E of site; N only status='draft'
 --                                                        own-byline, site active
---  media           all metadata: X+E                        E+A+S of site, storage_path set
+--  media           E+A+S of the row's site — NOT X: visitors get  E+A+S of site, storage_path set
+--                  images from the public bucket, not this table
+--                  (section 9; 004 dropped media_public_read)
 --  post_revisions  can_edit_post(post): E or N              can_edit_post(post): E or N
 --                  (immutable: no UPDATE/DELETE)            (immutable: no UPDATE/DELETE)
 --  redirects       all: X+E (public 301 map)                any active member E+A+S+N of site

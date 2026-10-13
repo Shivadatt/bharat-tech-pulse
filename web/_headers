@@ -1,0 +1,324 @@
+# _headers - Cloudflare Pages response headers for Bharat Tech Pulse (india_tech)
+#
+# Ships from web/ into build/web/ because `flutter build web` copies web/ verbatim.
+# Applies to static assets only; this project has no functions/ directory (verified).
+#
+# TWO HARD CONSTRAINTS TAKEN FROM THE CLOUDFLARE PAGES DOCS, WHICH SHAPE THIS FILE:
+#   1. "An incoming request which matches multiple rules' URL patterns will inherit
+#      all rules' headers" and "If a header is applied twice in the _headers file,
+#      the values are joined with a comma separator."
+#      => Cache-Control therefore appears in EXACTLY ONE rule per path. The catch-all
+#      '/*' deliberately carries no Cache-Control, because '/*' would otherwise merge
+#      with every asset rule and produce a multi-value header. That is why the app's
+#      route families are enumerated instead of relying on a single wildcard.
+#      (44 rules total; the documented ceiling is 100, and 2,000 chars per line.
+#      Longest line in this file: 739 chars.)
+#   2. "When a request matches both a redirect and a header, the redirect takes
+#      priority." So the 301s in _redirects are served without these Cache-Control
+#      values applied to the *target*; expected, not live-verified.
+#
+# CACHE POLICY REASONING - what I actually inspected in build/web (every file,
+# read-only: 42 files in the bundle first inspected, 49 in the live bundle that
+# replaced it during this round - the conclusions are identical for both):
+#   * Flutter's web output is NOT content-addressed. The emitted filenames are stable
+#     across builds: main.dart.js, flutter_bootstrap.js, flutter.js,
+#     flutter_service_worker.js, version.json, assets/AssetManifest.bin,
+#     assets/AssetManifest.bin.json, assets/FontManifest.json, assets/NOTICES,
+#     assets/fonts/MaterialIcons-Regular.otf,
+#     assets/packages/cupertino_icons/assets/CupertinoIcons.ttf,
+#     assets/shaders/*.frag, canvaskit/canvaskit.wasm (+ .js, .symbols, chromium/,
+#     skwasm*, wimp*, experimental_webparagraph/), icons/Icon-*.png.
+#   * There are ZERO '*.part.js' / split chunks in this bundle, and none of the 42
+#     files carry a hash in its name. (Full listing taken 2026-10-13.)
+#   * build/web/flutter_bootstrap.js loads the entrypoint as the literal URL
+#     "main.dart.js" - buildConfig reads
+#     {"engineRevision":"...","builds":[{"compileTarget":"dart2js",
+#     "renderer":"canvaskit","mainJsPath":"main.dart.js"}]} and the loader uses
+#     entrypointUrl = c("main.dart.js"). No ?v=, no fingerprint.
+#   * There is NO service-worker cache layer: the current build emits no
+#     flutter_service_worker.js at all (verified - absent from the 49-file listing),
+#     and the bundle that did emit one contained an 815 B stub that unregistered
+#     itself on activate. HTTP caching is therefore the only layer, which is exactly
+#     why these values have to be right. A rule for /flutter_service_worker.js is kept
+#     below so an older Flutter output is still covered.
+#
+#   => CONCLUSION: marking main.dart.js / assets/* / canvaskit/* as
+#      'immutable, max-age=31536000' would be WRONG - the URL never changes but the
+#      bytes do, so repeat visitors and the edge would keep serving the previous
+#      release's Dart code next to the new index.html. Instead every changing
+#      artifact is revalidated (max-age=0, must-revalidate). That is cheap here:
+#      Cloudflare Pages serves each deployment as an immutable snapshot, so a
+#      revalidation either 304s from the edge or returns the new deployment's bytes.
+#      Long max-age is reserved for brand art / manifests whose staleness is harmless
+#      and bounded to hours or a day.
+#
+#   NOT LIVE-VERIFIED: the exact Cache-Control Cloudflare Pages would use if it had to
+#   fall back, and whether the SPA 200-rewrite in _redirects is header-matched against
+#   the original path (/article/foo) or the rewritten one (/index.html). Both paths
+#   carry the same 'no-cache' value below so the answer is the same either way, and the
+#   curl checks in docs/DEPLOYMENT.md section 7 confirm it on the first preview deploy.
+
+# ---------------------------------------------------------------------------
+# 1. Headers applied to every response. These five names are set nowhere else,
+#    so the comma-join rule above can never duplicate them.
+#
+#    CSP: there is NO enforcing Content-Security-Policy in this file. See section 4
+#    at the bottom for the reason and the report-only policy that IS active.
+#
+#    COOP / COEP deliberately absent: crossOriginIsolated only buys multi-threaded
+#    skwasm, and this build's renderer is canvaskit + dart2js (verified in
+#    flutter_bootstrap.js buildConfig). 'Cross-Origin-Opener-Policy: same-origin'
+#    would also sever window.opener for any future Supabase OAuth popup, while
+#    lib/core/supabase/auth_service.dart currently uses password sign-in only.
+# ---------------------------------------------------------------------------
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=15552000
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://www.gstatic.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.gstatic.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+# WHY NO 'includeSubDomains' ON HSTS: lib/app/config/environment_config.dart:141
+# already hard-codes a second host, https://api.bharattechpulse.in, as the
+# (currently unused - verified: zero references outside that declaration) API
+# base default. Pinning subdomains before that host is provisioned with a working
+# certificate would brick it for 180 days. Do not add includeSubDomains/preload
+# until every planned subdomain is HTTPS and the apex domain is registered.
+# HARD COUPLING: HSTS here assumes the zone's SSL/TLS mode is 'Full (strict)'.
+# With 'Flexible' the browser-forced HTTPS meets Cloudflare's plain-HTTP origin
+# fetch and produces a redirect loop. See docs/DEPLOYMENT.md section 5.
+
+# ---------------------------------------------------------------------------
+# 2. The SPA shell must never be cached without revalidation, or a redeploy
+#    would keep handing visitors the old bootstrap chain. 'no-cache' (revalidate)
+#    not 'no-store': the edge may still store it, but it must check first, so a
+#    browser refresh after a deploy always picks up the new build.
+#    Route families listed from lib/app/routes/app_routes.dart and
+#    lib/app/routes/app_pages.dart; the trailing-slash category paths match the
+#    declared route strings and web/sitemap.xml.
+#
+#    Root path belt-and-braces: '/' is expected to match only the root request, and
+#    Pages most likely header-matches '/' either as the request path or as the
+#    resolved /index.html asset. Both rules are present with the SAME value, so the
+#    only two failure modes are (a) one of them applies, or (b) they comma-join into
+#    'no-cache, no-cache' - semantically identical. Even if '/' were treated as a
+#    greedy prefix, the joined value still contains no-cache, so the worst outcome is
+#    revalidation of assets, never stale code. That is why no rule in this file can
+#    ever downgrade freshness.
+# ---------------------------------------------------------------------------
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/article/*
+  Cache-Control: no-cache
+
+/author/*
+  Cache-Control: no-cache
+
+/admin
+  Cache-Control: no-cache
+
+/admin/*
+  Cache-Control: no-cache
+
+/search
+  Cache-Control: no-cache
+
+/about
+  Cache-Control: no-cache
+
+/contact
+  Cache-Control: no-cache
+
+/editorial-policy
+  Cache-Control: no-cache
+
+/privacy-policy
+  Cache-Control: no-cache
+
+/terms
+  Cache-Control: no-cache
+
+/disclaimer
+  Cache-Control: no-cache
+
+/404
+  Cache-Control: no-cache
+
+/ai/
+  Cache-Control: no-cache
+
+/smartphones/
+  Cache-Control: no-cache
+
+/apps/
+  Cache-Control: no-cache
+
+/how-to/
+  Cache-Control: no-cache
+
+/tech-news/
+  Cache-Control: no-cache
+
+/comparisons/
+  Cache-Control: no-cache
+
+/cyber-safety/
+  Cache-Control: no-cache
+
+/buying-guides/
+  Cache-Control: no-cache
+
+#    Prerendered category shells: tool/generate_prerender.dart runs AFTER
+#    `flutter build web` and writes build/web/<category-slug>/index.html (no trailing
+#    slash on the directory), so a request for /ai/ may be header-matched either as
+#    the request path '/ai/' or as the resolved asset '/ai/index.html'. Both rules
+#    carry the identical value, so the worst case is a harmless 'no-cache, no-cache'
+#    join and the prerendered HTML is never served stale. Article shells land under
+#    /article/<slug>/index.html and are already covered by '/article/*'.
+/ai/index.html
+  Cache-Control: no-cache
+
+/smartphones/index.html
+  Cache-Control: no-cache
+
+/apps/index.html
+  Cache-Control: no-cache
+
+/how-to/index.html
+  Cache-Control: no-cache
+
+/tech-news/index.html
+  Cache-Control: no-cache
+
+/comparisons/index.html
+  Cache-Control: no-cache
+
+/cyber-safety/index.html
+  Cache-Control: no-cache
+
+/buying-guides/index.html
+  Cache-Control: no-cache
+
+# ---------------------------------------------------------------------------
+# 3. Build artifacts whose bytes change on every release but whose NAMES do not
+#    (see the verified inventory above) - revalidate, never immutable.
+# ---------------------------------------------------------------------------
+/main.dart.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/flutter_bootstrap.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/flutter.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/flutter_service_worker.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/version.json
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/canvaskit/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# ---------------------------------------------------------------------------
+# 4. Crawlable + branded files. Kept short so a fixed robots.txt or the corrected
+#    sitemap.xml (web/sitemap.xml currently advertises 15 of the 24 seeded posts,
+#    per the count quoted in supabase/migrations/008_repair_image_url_prefix.sql)
+#    reaches crawlers within the hour rather than after a cache expiry.
+# ---------------------------------------------------------------------------
+/robots.txt
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/sitemap.xml
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/favicon.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/manifest.json
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/og-default.jpg
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/icons/*
+  Cache-Control: public, max-age=86400, must-revalidate
+
+# ---------------------------------------------------------------------------
+# CSP: why the report-only variant is what ships, and how to promote it.
+#
+# The enforcing header is omitted on purpose. Every source in the policy above is
+# derived from code I read, but three of them are load-bearing for first paint and
+# I could not exercise them in a browser this round (no Flutter toolchain, no
+# browser access - see the round's constraints). A wrong directive does not degrade
+# a feature, it white-screens the entire site, because Flutter Web boots by
+# evaluating JS + compiling WebAssembly:
+#   * 'wasm-unsafe-eval' - required for WebAssembly.compileStreaming() in
+#     flutter_bootstrap.js (verified call sites) on Chrome >= 95 / Firefox >= 100.
+#   * https://www.gstatic.com - flutter_bootstrap.js resolves the CanvasKit base
+#     with engineRevision present and NO useLocalCanvasKit key, so the emitted
+#     artifact points at https://www.gstatic.com/flutter-canvaskit/<engineRevision>
+#     even though build/web/canvaskit/* (~26 MB) is also bundled. Which of the two
+#     the browser actually fetches is UNVERIFIED - hence both 'self' and gstatic are
+#     allowed rather than guessing.
+#   * blob: - the same loader creates Blob/URL.createObjectURL script URLs for skwasm
+#     workers, and Flutter's own Trusted Types policy (class y in flutter_bootstrap.js)
+#     accepts blob: URLs.
+#   * style-src 'unsafe-inline' - the app writes inline style attributes itself
+#     (lib/core/platform/file_selector_web.dart:21 sets input.style.display), and the
+#     Flutter loader styles its <flt-glass-pane>/canvas elements inline.
+#   * https://fonts.googleapis.com + https://fonts.gstatic.com - pubspec.yaml depends
+#     on google_fonts ^8.2.1 and lib/app/theme/theme_text.dart requests Inter/Outfit/
+#     at runtime; these are external fetches, not bundled assets.
+#   * https://*.supabase.co - the API, Auth and public Storage hosts. Content heroes
+#     are Supabase Storage URLs (supabase/migrations/008_...sql and
+#     lib/data/repositories/supabase_media_repository.dart:53 getPublicUrl), so an
+#     exact-host allowlist would hard-code the project ref into a committed file;
+#     wildcard is the deliberate, non-secret form.
+#   * https://images.unsplash.com - only reachable from mock data
+#     (lib/data/services/mock_data_source.dart), kept so a mock preview deploy is not
+#     misleading; drop it once mock sources are tree-shaken out.
+#   * lib/core/seo/seo_dom_web.dart injects <script type="application/ld+json"> - not
+#     an executable script type, so script-src does not block it.
+#   * script-src 'unsafe-inline' is NOT a convenience - it is forced by the app's own
+#     GA4 loader: lib/core/analytics/ga4_dom_web.dart:20-27 appends an INLINE script
+#     (window.dataLayer / function gtag / gtag('config', ...)) and then an external
+#     https://www.googletagmanager.com/gtag/js script. Both hosts and the inline
+#     allowance are in the policy above. GA4 only boots when the bundle is built with
+#     --dart-define=GA_MEASUREMENT_ID=G-XXXXXXXXXX (analytics_service.dart:23 defaults
+#     to '' and Ga4Dom.init returns early on an empty id), so with the build command in
+#     tool/build_production.ps1 as it stands today nothing is fetched from these hosts;
+#     the allowance is there so a GA-enabled build is not silently broken. REMOVING
+#     'unsafe-inline' requires the loader to emit a nonce/hash - that is an app-side
+#     change, not a hosting change, and it should happen before this policy is promoted
+#     to enforcing.
+#   * GA4 also beacons to google-analytics.com / analytics.google.com (connect-src +
+#     img-src above). The exact endpoint set is Google-side and UNVERIFIED here; it is
+#     wildcarded rather than guessed host-by-host.
+#   * web/index.html itself now carries an inline <script type="application/ld+json">
+#     block plus a <meta name="google-site-verification"> placeholder; the ld+json type
+#     is a data block, which script-src does not execute and therefore does not block.
+#     lib/core/seo/seo_dom_web.dart injects the same non-executable type at runtime.
+#
+# PROMOTION PROCEDURE (owner, after a preview deploy exists):
+#   1. Open the preview URL for a category page, an article, /admin/login and one
+#      deep-link refresh, with DevTools console visible.
+#   2. Count "[Report Only] Refused ..." CSP messages. Each one names the directive
+#      and the URL; widen only that directive - do not add 'unsafe-inline' to
+#      script-src as a shortcut, it defeats the policy.
+#   3. When the console is clean across those four page types, rename the header to
+#      Content-Security-Policy, redeploy, repeat the checks, and only then consider
+#      require-trusted-types-for 'script' (not included above: Flutter's loader
+#      creates its own Trusted Types policy and would need verification first).
+#   4. Optional reporting endpoint (NOT CONFIGURED - none exists in this repo):
+#      add report-to/report-uri only once a collector is in place.
+# ---------------------------------------------------------------------------

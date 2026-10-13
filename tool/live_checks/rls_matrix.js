@@ -151,7 +151,6 @@ async function main() {
     ['tags', 'A10 anon reads tags'],
     ['redirects', 'A11 anon reads redirects map'],
     ['site_settings', 'A12 anon reads site_settings (config only, no secrets)'],
-    ['media', 'A13 anon reads media metadata'],
   ]) {
     const r = await anon.count(table, 'select=*');
     rep.check(r.ok && rowCount(r) > 0, label, `${evidence(r)}`);
@@ -629,7 +628,19 @@ async function main() {
   }
 
   /* ============================ G. STORAGE ================================= */
-  const bucketCheck = await anon.list('media', 'select=id,file_name,storage_path,public_url');
+  // media metadata is deliberately staff-only (media_select_site_member is
+  // `to authenticated`), so the anon plane must NOT be able to list it. The
+  // publicly served bytes come from storage.objects, not from this read.
+  const anonMedia = await anon.list('media', 'select=id');
+  rep.check(
+    isReject(anonMedia) || (anonMedia.ok && rowCount(anonMedia) === 0),
+    'G0 anon is DENIED media metadata (staff-only by design)',
+    `${evidence(anonMedia)} mechanism=${isReject(anonMedia) ? 'PERMISSION BLOCK' : 'filtered to 0 rows'}`
+  );
+  const mediaReader = siteAdmin || admin;
+  const bucketCheck = mediaReader
+    ? await mediaReader.list('media', 'select=id,file_name,storage_path,public_url')
+    : { ok: false, rows: [], status: 0, message: 'no staff token supplied' };
   const seeded = (bucketCheck.rows || []).find(
     (m) => m.storage_path && String(m.storage_path).startsWith('india_tech/')
   );
@@ -649,7 +660,7 @@ async function main() {
       rep.fail('G1 public read of a seeded media object', `path=${seeded.storage_path} HTTP ${read.status} ${read.message}`);
     }
   } else {
-    rep.skip('G1 public read of a seeded media object', 'no media row with an india_tech/ storage_path yet (seed section 8 pending)');
+    rep.skip('G1 public read of a seeded media object', mediaReader ? 'no media row with an india_tech/ storage_path yet (seed section 8 pending)' : 'media metadata needs a staff token (SUPABASE_SITE_ADMIN_TOKEN / SUPABASE_ADMIN_TOKEN); public bytes are still proven by G3b');
   }
 
   const anonUp = await api.storageUpload(cfg, null, 'media', `india_tech/${config.fixtureTag()}-anon.png`, 'image/png', api.tinyPng());

@@ -8,3 +8,8 @@ tokens.json
 secrets*.json
 *.token
 .cache/
+
+# Tracked exception: the placeholder TEMPLATE (never a real credential).
+# The repo-root .gitignore has a broad `.env.*` rule; this negation re-includes
+# only the example file so the owner can copy it to .env (which stays ignored).
+!.env.example

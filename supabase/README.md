@@ -5,7 +5,7 @@ Production backend for the Bharat Tech Pulse Flutter app
 The workspace is multi-site: `india_tech` is site #1 and sibling sites share this
 backend through the `sites` table and per-site role memberships.
 
-## Migration layout — apply strictly in numeric order 001 → 006
+## Migration layout — apply strictly in numeric order 001 → 008
 
 | Order | File | Contents |
 |-------|------|----------|
@@ -13,15 +13,22 @@ backend through the `sites` table and per-site role memberships.
 | 002 | `002_auth_and_roles.sql` | Role helper functions: `is_super_admin()`, `site_role(uuid)`, `is_site_member(uuid)`, `is_site_editor(uuid)`, `is_site_admin(uuid)`, `is_staff()`, `is_editor_up()`, `is_admin_up()`, `current_profile()`, `is_linked_author(uuid)`, `can_edit_post(uuid)` — all `stable security definer set search_path = public` |
 | 003 | `003_rls_policies.sql` | RLS enable + all policies for the 14 tables. Top-of-file comment carries the authoritative table × role × operation access matrix |
 | 004 | `004_storage_policies.sql` | `media` bucket (public read, 10 MB cap, image MIME allowlist) + storage object policies. Idempotent (drop-then-create) |
-| 005 | `005_functions.sql` | Scheduled-publishing helper `publish_scheduled_posts()` and its lock-down |
-| 006 | `006_seed_data.sql` | Site row `india_tech`, 8 categories, 4 unlinked author bylines. **Must run last** (needs tables + policies in place) |
+| 005 | `005_functions_and_triggers.sql` | Scheduled-publishing helper `publish_scheduled_posts()` and its lock-down |
+| 006 | `006_seed_data.sql` | Site row `india_tech`, 8 categories, 4 author bylines, 24 tags, 24 posts (15 published / 4 draft / 3 scheduled / 2 archived) with full bodies, and the 17-row `public.media` registry. **Must run last** (needs tables + policies in place) |
+| 007 | `007_bucket_image_assets.sql` | Rewrites every seeded image column to the first-party bucket path derived from the category/author slug |
+| 008 | `008_repair_image_url_prefix.sql` | Forward repair for 007's original missing folder prefix, plus a transaction-internal self-check that aborts unless every stored URL resolves to a `public.media` row AND a real `storage.objects` name |
 
+> **The live project has 001 → 008 applied and verified remotely, so this chain is
+> FORWARD-ONLY.** New schema or data changes go into a new numbered file; never edit an
+> applied migration and expect the database to notice. In-place edits remain acceptable
+> only for re-runnable, drop-then-create rewrites and for the seed file's literals that a
+> forward migration then re-derives.
+>
 > Numbering note: the seed was renumbered `004_seed_data.sql` → `006_seed_data.sql`
 > during the Phase-2 rewrite. If stale files (`004_seed_data.sql`,
 > `005_functions.sql`) are still present alongside the new set, do not apply
-> them — apply exactly the chain above (001 → 006) and let the schema agent
-> (SA1) remove superseded files. Never apply seed data before the policies
-> (003/004) exist.
+> them — apply exactly the chain above (001 → 008). Never apply seed data before the
+> policies (003/004) exist.
 
 ## How to apply
 

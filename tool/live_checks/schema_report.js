@@ -30,7 +30,6 @@ const ANON_EXPECTS_ROWS = new Set([
   'tags',
   'posts',
   'post_tags',
-  'media',
   'redirects',
   'site_settings',
 ]);

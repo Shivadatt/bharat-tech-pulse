@@ -40,8 +40,14 @@ All commands must be executed from inside `D:\personal blog websites\india_tech_
 | **Fetch Dependencies** | `fvm flutter pub get` |
 | **Code Analyzer** | `fvm flutter analyze` |
 | **Run Test Suite** | `fvm flutter test` |
-| **Run Locally (Chrome)**| `fvm flutter run -d chrome` |
-| **Build Web Release** | `fvm flutter build web --release` |
+| **Run Locally (Chrome)**| `fvm flutter run -d chrome` (mock data) |
+| **Build Production Web** | `powershell -NoProfile -ExecutionPolicy Bypass -File tool\build_production.ps1` |
+
+> **A release build can no longer ship mock data.** `fvm flutter build web --release`
+> without `ENV=production` + `DATA_SOURCE=supabase` + real credentials produces a
+> bundle that throws a `CONFIGURATION ERROR` at startup instead of rendering
+> fabricated articles (see §8). Use `tool/build_production.ps1`, or
+> `fvm flutter run -d chrome` / `fvm flutter build web --debug` for a local mock preview.
 
 ---
 
@@ -150,11 +156,13 @@ D:\personal blog websites\india_tech_web\
 - `/admin` & `/admin/dashboard` — Metric dashboard
 - `/admin/login` — Authentication screen
 
-> **Phase 1 status:** The admin CMS and its sign-in are a **client-side mock only**.
-> Any non-empty email/password combination is accepted, the gate is UX routing
-> (GetMiddleware), and no credential is verified or stored — everything in a
-> Flutter Web bundle is public. Real authentication and authorization arrive in
-> Phase 2 and **must** be enforced server-side (Supabase Auth + RLS).
+> **Status:** Admin sign-in is real Supabase Auth **only when the backend is
+> configured** (`ENV=production` + `DATA_SOURCE=supabase` + credentials). In mock
+> mode `AdminAuthController.login()` **refuses every credential** with
+> `Backend is not configured.` and never sets `isLoggedIn` — the CMS is
+> unreachable rather than falsely open. The GetX middleware is client-side UX
+> gating only; real authorization is enforced server-side (Supabase Auth + RLS),
+> because everything in a Flutter Web bundle is public.
 - `/admin/articles` — Article list & quick actions
 - `/admin/articles/create` — Composition editor
 - `/admin/articles/edit/:id` — Edit existing story
@@ -217,22 +225,78 @@ The application includes responsive layout builders without horizontal scrollbar
 
 ---
 
-## 8. Future Supabase Integration (Phase 2 Preparation)
+## 8. Data Source: Mock vs Supabase (Production Wiring)
 
-The architecture isolates the UI from the mock layer through repository interfaces:
+Repository interfaces isolate the UI from the data layer:
+
 - `ArticleRepository` defines the contract for reading, filtering, and CRUD operations.
-- `MockArticleRepository` serves data from `MockDataSource`.
-- In Phase 2, `SupabaseArticleRepository` can be added without altering a single widget or GetX controller. Simply bind `Get.put<ArticleRepository>(SupabaseArticleRepository())` in `InitialBinding`.
-- Environment credentials can be supplied at build time:
-  ```powershell
-  fvm flutter build web --release --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_ANON_KEY=your-anon-key
-  ```
+- `MockArticleRepository` serves data from `MockDataSource` (development and tests only).
+- `SupabaseArticleRepository` implements the same contract against Postgres/RLS and is
+  bound by `InitialBinding` whenever `EnvironmentConfig.useSupabase` is true — no widget
+  or GetX controller changes.
+
+### Selection rules (`lib/app/config/environment_config.dart`)
+
+| Build | Result |
+| :--- | :--- |
+| `fvm flutter test`, `flutter run`, `build web --debug` | mock repositories (default `DATA_SOURCE=mock`) |
+| `build web --release` **or** `ENV=production`, with `DATA_SOURCE=supabase` + real credentials | Supabase repositories, live backend |
+| `build web --release` **or** `ENV=production` without them | **startup `StateError`** with the exact remediation command — never silent mock content |
+
+The signal is `--dart-define=ENV=production` (explicit developer intent) plus a
+`kReleaseMode` backstop. `kReleaseMode` alone is not used as the trigger because it is
+`false` under `flutter test`, and the mock path must keep working there; in a release
+compilation it is `true`, so forgetting `ENV=production` fails loudly too. Because the
+mock branch is statically unreachable in a production build, the mock fixtures are
+tree-shaken out of the shipped bundle entirely.
+
+### The correct production command
+
+```powershell
+fvm flutter build web --release `
+  --dart-define=ENV=production `
+  --dart-define=DATA_SOURCE=supabase `
+  --dart-define=SUPABASE_URL=https://<project-ref>.supabase.co `
+  --dart-define=SUPABASE_ANON_KEY=<publishable key>
+```
+
+`SUPABASE_ANON_KEY` must be the **publishable / anon** key (`sb_publishable_...` or the
+legacy anon JWT). It is public by design: a Flutter Web bundle is readable by every
+visitor. **Never** put a `service_role` key, any secret key, or a database password in
+Flutter source, frontend config, git, a `--dart-define`, or the bundle.
+
+Prefer the script, which reads the two values with the existing toolkit loader
+(`tool/live_checks/lib/config.js`: real env vars first, then the git-ignored
+`tool/live_checks/.env`), refuses to build when either is missing or still a
+placeholder, prints only the key's presence/length, and verifies the bundle afterwards:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tool\build_production.ps1
+```
 
 ---
 
 ## 9. Verification Summary
 
-- **Flutter SDK**: 3.44.6
-- **Analyzer Status**: `0 issues` (`fvm flutter analyze` passed cleanly)
-- **Test Status**: `13 / 13 passed` (`fvm flutter test` passed 100%)
-- **Release Build**: `build/web` generated successfully with full font and icon tree-shaking
+Last verified: Phase 1 (production data-source selection), Flutter 3.44.6 / Dart 3.12.2 via FVM.
+
+- **Analyzer**: `fvm flutter analyze --no-pub` → `No issues found!`
+- **Tests**: `fvm flutter test` → `All tests passed!` — **62** tests
+  (the 49 pre-existing tests plus 13 new Phase 1 tests in
+  `test/production_data_source_test.dart`)
+- **Bundle markers** (`build/web/main.dart.js` occurrence counts):
+
+| Marker | default `--release` mock build (before) | production wiring proof (`ENV=production DATA_SOURCE=supabase`, dummy key) | dev `--debug` build (restored) |
+| :--- | ---:| ---:| ---:|
+| `post_revisions` | 0 | 2 | 0 |
+| `analytics_events` | 0 | 4 | 0 |
+| `ylzwuwfhlqomjqcdrpxk` (live project ref) | 0 | 4 | 0 |
+| `placeholder-project` | 1 | 0 | 2 |
+| `Aravind Sharma` (mock fixture) | 1 | 0 | 1 |
+| bundle size | 3,291,528 B | 3,436,722 B | 12,927,991 B |
+
+  The dummy-key artifact proves the Supabase repositories survive tree-shaking when
+  `DATA_SOURCE=supabase`, and that no mock fixture data ships with it. It is **not**
+  releasable — it carries a fake key. A releasable bundle requires the owner's real
+  publishable/anon key via `tool/build_production.ps1`.
+- **Release Build**: `build/web` regenerates cleanly with full font/icon tree-shaking.

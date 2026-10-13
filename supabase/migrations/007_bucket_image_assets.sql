@@ -22,14 +22,14 @@ begin;
 
 -- 1. author avatars -> media/india_tech/authors/<slug>-avatar.jpg ------------
 update public.authors a
-   set avatar_url = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/' || a.slug || '-avatar.jpg'
+   set avatar_url = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/india_tech/authors/' || a.slug || '-avatar.jpg'
   where a.slug in ('aravind-sharma', 'priya-nambiar', 'rohit-deshmukh', 'sneha-kulkarni');
 
 -- 2. post hero / thumbnail / og -> media/india_tech/articles/category/<category-slug>-hero.jpg
 update public.posts p
-   set featured_image  = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/' || c.slug || '-hero.jpg',
-       thumbnail_image = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/' || c.slug || '-hero.jpg',
-       og_image        = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/' || c.slug || '-hero.jpg'
+   set featured_image  = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/india_tech/articles/category/' || c.slug || '-hero.jpg',
+       thumbnail_image = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/india_tech/articles/category/' || c.slug || '-hero.jpg',
+       og_image        = 'https://ylzwuwfhlqomjqcdrpxk.supabase.co/storage/v1/object/public/media/india_tech/articles/category/' || c.slug || '-hero.jpg'
   from public.categories c
  where p.category_id = c.id
    and c.slug in ('ai', 'smartphones', 'apps', 'how-to',

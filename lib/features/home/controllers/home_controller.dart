@@ -35,11 +35,10 @@ class HomeController extends GetxController {
     // path so the 404's own metadata wins.
     final path = browserPath();
     if (path == '/' || path == '/index.html') {
-      seoService.updateMeta(
+      seoService.updateSiteMeta(
         title: 'Bharat Tech Pulse — Technology for Everyday India',
         description:
             'Actionable AI tools, unbiased smartphone reviews, practical how-to tutorials, and cyber safety alerts for Indian users.',
-        canonicalPath: '/',
       );
     }
     loadHomeData();

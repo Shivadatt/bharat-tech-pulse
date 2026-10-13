@@ -50,7 +50,67 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
+  <!-- Search Console ownership slot. Left intentionally empty: the real token
+       is never committed. Either substitute it at deploy time (Cloudflare Pages
+       env/replacement) or inject it at build time with
+       `--dart-define=GOOGLE_SITE_VERIFICATION=<token>`, which SeoService writes
+       into this same tag on boot. Googlebot executes JS, so the dart-define path
+       verifies even with an empty static value here. -->
+  <meta name="google-site-verification" content="">
+
   <link rel="manifest" href="manifest.json">
+
+  <!-- Sitewide structured data: Organization + WebSite. Per-article BlogPosting,
+       FAQPage and BreadcrumbList are added by SeoService at runtime and baked
+       into the prerendered shells by tool/generate_prerender.dart.
+
+       The id is load-bearing: SeoDom._setJsonLd removes `#app-seo-json-ld`
+       before injecting the route's own graph. Without it, a JS-capable crawler
+       (Googlebot) saw this Organization+WebSite block AND the runtime block on
+       every page — two structured-data documents describing the same entity. -->
+  <script type="application/ld+json" id="app-seo-json-ld">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": "Bharat Tech Pulse",
+        "url": "https://bharattechpulse.in",
+        "description": "Bharat Tech Pulse delivers actionable AI tools tutorials, unbiased smartphone comparisons, practical how-to guides, and cyber safety awareness curated specifically for Indian tech enthusiasts and families.",
+        "email": "contact@bharattechpulse.in",
+        "logo": { "@type": "ImageObject", "url": "https://bharattechpulse.in/favicon.png" },
+        "sameAs": [
+          "https://twitter.com/BharatTechPulse",
+          "https://www.youtube.com/@BharatTechPulse",
+          "https://t.me/bharattechpulse",
+          "https://www.linkedin.com/company/bharat-tech-pulse"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://bharattechpulse.in/#website",
+        "url": "https://bharattechpulse.in",
+        "name": "Bharat Tech Pulse",
+        "description": "Bharat Tech Pulse delivers actionable AI tools tutorials, unbiased smartphone comparisons, practical how-to guides, and cyber safety awareness curated specifically for Indian tech enthusiasts and families.",
+        "inLanguage": "en-IN",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Bharat Tech Pulse",
+          "url": "https://bharattechpulse.in",
+          "description": "Bharat Tech Pulse delivers actionable AI tools tutorials, unbiased smartphone comparisons, practical how-to guides, and cyber safety awareness curated specifically for Indian tech enthusiasts and families.",
+          "email": "contact@bharattechpulse.in",
+          "logo": { "@type": "ImageObject", "url": "https://bharattechpulse.in/favicon.png" },
+          "sameAs": [
+            "https://twitter.com/BharatTechPulse",
+            "https://www.youtube.com/@BharatTechPulse",
+            "https://t.me/bharattechpulse",
+            "https://www.linkedin.com/company/bharat-tech-pulse"
+          ]
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body style="background-color: #0B0F19;">
   <!--

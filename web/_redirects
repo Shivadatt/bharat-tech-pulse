@@ -1,0 +1,84 @@
+# _redirects - Cloudflare Pages routing table for Bharat Tech Pulse (site slug: india_tech)
+#
+# This file lives in web/ because `flutter build web` copies every file in web/
+# verbatim into build/web/, which is the directory Cloudflare Pages publishes.
+# No extra tooling is required: the rules below ship with the bundle.
+#
+# SYNTAX (Cloudflare Pages _redirects):
+#   <source> <destination> <status>
+#   - a single '*' is a greedy splat, referenced in the destination as ':splat'
+#   - status 200 = invisible rewrite (the browser URL is NOT changed)
+#   - status 301 = permanent redirect, so the trailing-slash fixes get cached
+#     and the SEO signal moves to the slashed URL
+#   - lines starting with '#' are comments
+#   - limit: 2,000 static + 100 dynamic rules (we use 9 static rules)
+#
+# PRECEDENCE / WHAT I VERIFIED:
+#   * VERIFIED from this repository that the app uses clean path URLs, not hash
+#     URLs: lib/main.dart:77 calls usePathUrlStrategy() before GetMaterialApp,
+#     so real deep links look like /article/<slug>, /author/<slug>, /admin/...
+#     Without a rule below, Cloudflare Pages answers those paths with 404
+#     (there is no such file in the deployment), so the SPA fallback is
+#     mandatory, not cosmetic.
+#   * DOCUMENTED Cloudflare behaviour: "The order of your redirects matter. If
+#     there are multiple redirects for the same source path, the top-most
+#     redirect is applied." Therefore every specific rule is above the catch-all.
+#   * EXPECTED but NOT LIVE-VERIFIED (nothing is deployed this round): an
+#     existing static asset wins over the '/* /index.html 200' rewrite, so
+#     /robots.txt, /sitemap.xml, /og-default.jpg, /main.dart.js, /canvaskit/...
+#     keep serving their own files. Verify with the curl checks in
+#     docs/DEPLOYMENT.md section 7 before trusting it.
+#   * Redirects are not applied to Pages Functions output; this project has no
+#     functions/ directory (verified), so every request here is a static asset.
+
+# ---------------------------------------------------------------------------
+# 1. Trailing-slash normalisation for the eight category routes.
+#
+#    Evidence: lib/app/routes/app_routes.dart declares these routes WITH a
+#    trailing slash (ai = '/ai/', buyingGuides = '/buying-guides/', ...) and
+#    web/sitemap.xml advertises them with the trailing slash. lib/main.dart's
+#    _isKnownRoute() set contains only the slashed form, so a cold load of the
+#    un-slashed '/ai' does not match any GetPage: GetX falls back to the home
+#    route while main.dart stamps "Page Not Found" metadata onto it. That is a
+#    duplicate-content/soft-404 shape, so fix it at the edge with 301s.
+#
+#    These are EXACT path sources (no splat), so they cannot shadow anything
+#    deeper: /article/<slug> and any future /ai/<subpath> are untouched.
+# ---------------------------------------------------------------------------
+/ai /ai/ 301
+/smartphones /smartphones/ 301
+/apps /apps/ 301
+/how-to /how-to/ 301
+/tech-news /tech-news/ 301
+/comparisons /comparisons/ 301
+/cyber-safety /cyber-safety/ 301
+/buying-guides /buying-guides/ 301
+
+# ---------------------------------------------------------------------------
+# 2. SPA fallback - the single rule that makes every deep link and every
+#    browser refresh work.
+#
+#    Covers, per lib/app/routes/app_pages.dart + lib/app/routes/app_routes.dart:
+#      /article/<slug>          articleDetail
+#      /author/<slug>           authorDetail
+#      /admin, /admin/login, /admin/articles, /admin/articles/edit/<id>, ...
+#      /search  /about  /contact  /editorial-policy  /privacy-policy
+#      /terms  /disclaimer  /404
+#
+#    Unmatched garbage paths also land on the shell on purpose: lib/main.dart
+#    already detects an unknown cold-boot path and writes "Page Not Found"
+#    metadata + renders NotFoundView, which is the intended 404 experience.
+#
+#    Deliberately NOT added, and why:
+#      * '/index.html -> / 301' canonicalisation: the destination of this very
+#        rewrite is /index.html. Removing the duplicate /index.html URL is a
+#        minor SEO win and a wrong-assumption risk of white-gating every deep
+#        link. Left out; see docs/DEPLOYMENT.md section 6.
+#      * '/category/<slug>' rules: no such route exists in this app (verified -
+#        categories are served by the slashed top-level routes above). Adding
+#        rewrites for URLs the app cannot render would only create dead links.
+#      * '/admin/login -> /admin': both are real GetPage routes and
+#        AdminAuthMiddleware() legitimately wants to send visitors to the login
+#        route; rewriting at the edge would fight the app.
+# ---------------------------------------------------------------------------
+/* /index.html 200

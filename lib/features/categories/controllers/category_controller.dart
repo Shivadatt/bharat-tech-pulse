@@ -77,11 +77,7 @@ class CategoryController extends GetxController {
       final popular = await articleRepository.getPopularArticles(limit: 4);
       popularArticles.assignAll(popular);
 
-      seoService.updateMeta(
-        title: '${cat.name} — Bharat Tech Pulse',
-        description: cat.description,
-        canonicalPath: '/$slug/',
-      );
+      seoService.updateCategorySeo(cat);
     } catch (e) {
       errorMessage.value = e.toString();
     } finally {

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import '../../data/repositories/analytics_repository.dart';
+import 'ga4_dom.dart';
 
 /// Visitor-facing beacon. Writes the two event types the public
 /// `analytics_events` RLS insert policy accepts (`page_view`, `article_view`)
@@ -16,10 +17,40 @@ import '../../data/repositories/analytics_repository.dart';
 class AnalyticsService extends GetxService {
   static const _articlePathPrefix = '/article/';
 
+  /// Build-time GA4 id (`--dart-define=GA_MEASUREMENT_ID=G-XXXXXXXXXX`).
+  /// Never hardcoded: an empty string means GA stays inert.
+  static const String _envMeasurementId =
+      String.fromEnvironment('GA_MEASUREMENT_ID', defaultValue: '');
+
   String? _sessionId;
 
-  /// One id per app run. Persisting it would need a storage round-trip before
-  /// the first beacon fires, which is not worth blocking the read path.
+  String? _gaId;
+  String? _lastGaRoute;
+  bool get _gaActive => kIsWeb && _gaId != null && _gaId!.isNotEmpty;
+
+  /// Effective GA id: the build-time value wins, otherwise the DB
+  /// `site_settings.google_analytics_id` supplied via [configureGa].
+  String? get gaMeasurementId => _gaId;
+
+  void _resolveGa() {
+    if (_gaId != null && _gaId!.isNotEmpty) return;
+    if (_envMeasurementId.isNotEmpty) {
+      _gaId = _envMeasurementId;
+      Ga4Dom.init(_envMeasurementId);
+    }
+  }
+
+  /// Optional runtime override from `site_settings.google_analytics_id`.
+  /// Ignored once a build-time id is present and never re-inits the tag.
+  void configureGa(String? fromDatabase) {
+    final id = fromDatabase?.trim() ?? '';
+    if (id.isEmpty) return;
+    if (_envMeasurementId.isNotEmpty) return;
+    if (_gaId == id) return;
+    _gaId = id;
+    Ga4Dom.init(id);
+  }
+
   String get _session => _sessionId ??=
       '${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}'
       '-${Random().nextDouble().toStringAsFixed(10).substring(2)}';
@@ -33,6 +64,11 @@ class AnalyticsService extends GetxService {
     if (kDebugMode) {
       debugPrint('[Analytics] PageView: $routeName');
     }
+    _resolveGa();
+    if (_gaActive && routeName != _lastGaRoute) {
+      _lastGaRoute = routeName;
+      Ga4Dom.pageView(routeName);
+    }
     _beacon(() => _repository?.track(
           eventType: 'page_view',
           sessionId: _session,
@@ -44,6 +80,14 @@ class AnalyticsService extends GetxService {
     if (kDebugMode) {
       debugPrint('[Analytics] Event: article_read, Params: '
           '{slug: $slug, category: $category}');
+    }
+    _resolveGa();
+    if (_gaActive) {
+      Ga4Dom.event('article_view', <String, Object?>{
+        'article_slug': slug,
+        'article_category': category,
+        'post_id': ?postId,
+      });
     }
     _beacon(() => _repository?.track(
           eventType: 'article_view',
