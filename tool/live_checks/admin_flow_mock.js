@@ -694,12 +694,12 @@ function staticPlane(rep) {
   const loginChunk = pageChunks.find((chunk) => /name:\s*AppRoutes\.adminLogin/.test(chunk)) || '';
   check(
     loginChunk.length > 0 && !/AdminAuthMiddleware/.test(loginChunk),
-    'T the login route itself is reachable without the guard',
+    'the login route itself is reachable without the guard',
     'app_pages.dart:227-231 — /admin/login carries no middleware (correct: it is the redirect target)'
   );
   check(
     !/auth\.isLoggedIn\.value[\s\S]{0,80}AppRoutes\.admin\b/.test(middleware),
-    'T FINDING: no reverse guard sends a still-signed session out of the login page',
+    'FINDING: no reverse guard sends a still-signed session out of the login page',
     'admin_auth_middleware.dart:15-26 only redirects when isLoggedIn is false, so the navigation-only Logout ' +
       'screen does not stop a Back navigation (or a reload of /admin/dashboard, via restoreSession) from ' +
       'returning to the CMS with the same live token'
