@@ -86,8 +86,11 @@
 --   deleteArticle: posts DELETE — admins only (is_site_admin of the row's site).
 --   Category/tag/author CRUD screens: categories+tags write = is_site_editor /
 --   is_site_admin of the row's site; authors write = is_site_admin.
---   Media library: media read = public, writes = is_site_editor of the site;
---   storage object writes require the same via 004_storage_policies.sql.
+--   Media library: media metadata read = is_site_member of the site (staff only
+--   — media_select_site_member below), writes = is_site_editor of the site;
+--   storage object writes require the same via 004_storage_policies.sql. Visitors
+--   never read this table: the rendered image URLs live on the post/author rows
+--   and the bucket is public, so /object/public/<path> serves without any RLS.
 --   Public site pages (X): feeds, article pages, 301 lookups, tag/category
 --   resolution, subscribe form, analytics beacons.
 --
