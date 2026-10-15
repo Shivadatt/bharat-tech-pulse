@@ -379,7 +379,7 @@ All three now support UPI Lite with on-device biometric auth up to ₹500 withou
       publishedAt: DateTime(2026, 9, 22, 11, 0),
       updatedAt: DateTime(2026, 9, 22, 11, 0),
       featuredImage:
-          'https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=1200&q=80',
+          'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80',
       readingTimeMinutes: 6,
       isFeatured: false,
       isTrending: true,

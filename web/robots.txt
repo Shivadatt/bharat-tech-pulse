@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /admin/
+Disallow: /search
 
 Sitemap: https://bharattechpulse.in/sitemap.xml

@@ -572,8 +572,12 @@ void main() {
   group('prerendered bundle on disk is current', () {
     test('every shell in build/web matches a fresh render (no stale shells)',
         () {
-      if (!Directory(_builtBundle).existsSync()) {
-        return; // nothing built yet — the build script owns this proof
+      // Gate on the shells themselves, not on build/web existing: `flutter
+      // build web` produces a bundle without prerendered shells, and
+      // tool/generate_prerender.dart is what adds them. Keying off the
+      // directory made every plain build fail this test for the wrong reason.
+      if (!Directory('$_builtBundle/article').existsSync()) {
+        return; // nothing prerendered yet — the build script owns this proof
       }
       var checked = 0;
       for (final art in data.publishedPosts) {

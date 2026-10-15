@@ -3,11 +3,13 @@ import 'package:get/get.dart';
 import '../../../shared/components/breadcrumb_widget.dart';
 import '../../../shared/components/section_header.dart';
 import '../../../shared/layouts/public_scaffold.dart';
+import '../../../shared/responsive/responsive_breakpoints.dart';
 import '../../../shared/responsive/responsive_container.dart';
 import '../../../shared/responsive/responsive_grid.dart';
 import '../../../shared/skeletons/error_state.dart';
 import '../../../shared/skeletons/loading_skeleton.dart';
 import '../../../shared/widgets/article_card.dart';
+import '../../../shared/widgets/author_avatar.dart';
 import '../controllers/author_controller.dart';
 
 class AuthorView extends GetView<AuthorController> {
@@ -49,70 +51,93 @@ class AuthorView extends GetView<AuthorController> {
               const SizedBox(height: 16),
 
               // Author Header Profile Card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.colorScheme.outline),
-                ),
-                child: Row(
+              Builder(builder: (context) {
+                // An 88px avatar plus a 24px gap inside 32px of padding leaves
+                // ~104px of text column on a 320px phone, which the email chip
+                // cannot fit. Stack vertically instead.
+                final compact = ResponsiveBreakpoints.isMobileSmall(context);
+                final avatar = AuthorAvatar(
+                  name: author.name,
+                  avatarUrl: author.avatarUrl,
+                  radius: compact ? 32 : 44,
+                );
+                final details = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 44,
-                      backgroundImage: NetworkImage(author.avatarUrl),
-                      backgroundColor: theme.colorScheme.primary.withAlpha(50),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            author.name,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            author.role,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            author.bio,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 12,
-                            children: [
-                              if (author.twitter.isNotEmpty)
-                                ActionChip(
-                                  avatar: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
-                                  label: Text(author.twitter, style: const TextStyle(fontSize: 12)),
-                                  onPressed: () {},
-                                ),
-                              if (author.email.isNotEmpty)
-                                ActionChip(
-                                  avatar: const Icon(Icons.email_outlined, size: 14),
-                                  label: Text(author.email, style: const TextStyle(fontSize: 12)),
-                                  onPressed: () {},
-                                ),
-                            ],
-                          ),
-                        ],
+                    Text(
+                      author.name,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      author.role,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      author.bio,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        if (author.twitter.isNotEmpty)
+                          ActionChip(
+                            avatar: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
+                            label: Text(author.twitter,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12)),
+                            onPressed: () {},
+                          ),
+                        if (author.email.isNotEmpty)
+                          ActionChip(
+                            avatar: const Icon(Icons.email_outlined, size: 14),
+                            label: Text(author.email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12)),
+                            onPressed: () {},
+                          ),
+                      ],
+                    ),
                   ],
-                ),
-              ),
+                );
+
+                return Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(compact ? 16 : 32),
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: theme.colorScheme.outline),
+                  ),
+                  child: compact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            avatar,
+                            const SizedBox(height: 16),
+                            details,
+                          ],
+                        )
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            avatar,
+                            const SizedBox(width: 24),
+                            Expanded(child: details),
+                          ],
+                        ),
+                );
+              }),
 
               const SizedBox(height: 48),
 

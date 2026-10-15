@@ -11,6 +11,15 @@ class MockCategoryRepository implements CategoryRepository {
   final List<AuthorModel> _authors = List.from(MockDataSource.authors);
   final List<TagModel> _tags = List.from(MockDataSource.tags);
 
+  int _seq = 0;
+
+  /// The CMS dialogs hand over rows with an empty id because Supabase assigns
+  /// the primary key server-side. The mock lists are keyed by id exactly like
+  /// the table, so storing several `''` rows makes every later update or delete
+  /// land on whichever duplicate sits earliest in the list.
+  String _nextId(String prefix) =>
+      '$prefix-${DateTime.now().microsecondsSinceEpoch}-${_seq++}';
+
   @override
   Future<List<CategoryModel>> getCategories() async {
     await Future.delayed(const Duration(milliseconds: 30));
@@ -69,8 +78,23 @@ class MockCategoryRepository implements CategoryRepository {
         'A category with this slug already exists.',
       );
     }
-    _categories.add(category);
-    return category;
+    final stored = category.id.isEmpty
+        ? CategoryModel(
+            id: _nextId('cat'),
+            slug: category.slug,
+            name: category.name,
+            description: category.description,
+            iconCode: category.iconCode,
+            subcategories: category.subcategories,
+            imageUrl: category.imageUrl,
+            sortOrder: category.sortOrder,
+            isActive: category.isActive,
+            seoTitle: category.seoTitle,
+            seoDescription: category.seoDescription,
+          )
+        : category;
+    _categories.add(stored);
+    return stored;
   }
 
   @override
@@ -102,8 +126,11 @@ class MockCategoryRepository implements CategoryRepository {
     if (_tags.any((t) => t.slug == tag.slug)) {
       throw const ValidationException('A tag with this slug already exists.');
     }
-    _tags.add(tag);
-    return tag;
+    final stored = tag.id.isEmpty
+        ? TagModel(id: _nextId('tag'), slug: tag.slug, name: tag.name, count: tag.count)
+        : tag;
+    _tags.add(stored);
+    return stored;
   }
 
   @override
@@ -134,8 +161,23 @@ class MockCategoryRepository implements CategoryRepository {
         'An author with this slug already exists.',
       );
     }
-    _authors.add(author);
-    return author;
+    final stored = author.id.isEmpty
+        ? AuthorModel(
+            id: _nextId('author'),
+            slug: author.slug,
+            name: author.name,
+            role: author.role,
+            bio: author.bio,
+            avatarUrl: author.avatarUrl,
+            twitter: author.twitter,
+            linkedin: author.linkedin,
+            email: author.email,
+            isActive: author.isActive,
+            linkedUserId: author.linkedUserId,
+          )
+        : author;
+    _authors.add(stored);
+    return stored;
   }
 
   @override

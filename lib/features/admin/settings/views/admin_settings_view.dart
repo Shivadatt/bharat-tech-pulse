@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 
 import '../../../../app/config/environment_config.dart';
 import '../../../../app/config/site_config.dart';
+import '../../../../core/supabase/role_permissions.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../../shared/widgets/admin_state_view.dart';
 import '../controllers/admin_settings_controller.dart';
@@ -15,121 +17,148 @@ class AdminSettingsView extends GetView<AdminSettingsController> {
     return AdminScaffold(
       title: 'Platform & Backend Settings',
       actions: [
-        Obx(() => ElevatedButton.icon(
-              onPressed: controller.isSaving.value ? null : controller.save,
-              icon: controller.isSaving.value
-                  ? const SizedBox(
-                      width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.save_rounded, size: 18),
-              label: const Text('Save'),
-            )),
+        Obx(() {
+          // `site_settings` writes are `is_site_admin` under RLS, so the write
+          // affordance is hidden for every lower tier rather than left there to
+          // fail.
+          if (!AdminAuthController.allows(RolePermissions.canManageSettings)) {
+            return const SizedBox.shrink();
+          }
+          return ElevatedButton.icon(
+            onPressed: controller.isSaving.value ? null : controller.save,
+            icon: controller.isSaving.value
+                ? const SizedBox(
+                    width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save_rounded, size: 18),
+            label: const Text('Save'),
+          );
+        }),
       ],
-      body: Obx(() => AdminStateView(
-            isLoading: controller.isLoading.value,
-            error: controller.errorMessage.value,
+      body: Obx(() {
+        // The route middleware bounced a role-mismatched visit to the
+        // dashboard; this catches a role revoked while the page was open (a
+        // token refresh reloaded a downgraded profile).
+        if (!AdminAuthController.allows(RolePermissions.canManageSettings)) {
+          return AdminStateView(
+            isLoading: false,
+            error: 'Site settings are managed by site admins. '
+                'Your role cannot change them.',
             isEmpty: false,
             emptyMessage: '',
-            onRetry: controller.load,
+            child: const SizedBox.shrink(),
+          );
+        }
+        return AdminStateView(
+          isLoading: controller.isLoading.value,
+          error: controller.errorMessage.value,
+          isEmpty: false,
+          emptyMessage: '',
+          onRetry: controller.load,
+          child: _settingsForm(context),
+        );
+      }),
+    );
+  }
+
+  Widget _settingsForm(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Site Identity',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          initialValue: SiteConfig.siteId,
-                          decoration:
-                              const InputDecoration(labelText: 'Site Identifier (siteId)'),
-                          readOnly: true,
-                        ),
-                        const SizedBox(height: 16),
-                        _field('Site Display Name', controller.siteNameController),
-                        _field('Tagline', controller.taglineController),
-                        _field('Contact Email', controller.contactEmailController),
-                        _field('Footer Text', controller.footerTextController),
-                        _field('Copyright Text', controller.copyrightController),
-                      ],
-                    ),
-                  ),
+                Text(
+                  'Site Identity',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Social Links',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        _field('Twitter / X', controller.twitterController),
-                        _field('YouTube', controller.youtubeController),
-                        _field('Telegram', controller.telegramController),
-                        _field('LinkedIn', controller.linkedinController),
-                      ],
-                    ),
-                  ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  initialValue: SiteConfig.siteId,
+                  decoration:
+                      const InputDecoration(labelText: 'Site Identifier (siteId)'),
+                  readOnly: true,
                 ),
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: const [
-                            Icon(Icons.storage_rounded, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text(
-                              'Backend Integration',
-                              style:
-                                  TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          initialValue: EnvironmentConfig.supabaseUrl,
-                          decoration: const InputDecoration(
-                            labelText: 'SUPABASE_URL',
-                            helperText:
-                                'Configured via --dart-define=SUPABASE_URL=...',
-                          ),
-                          readOnly: true,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          initialValue: EnvironmentConfig.useSupabase
-                              ? 'Supabase (live)'
-                              : 'In-memory mock (no backend configured)',
-                          decoration: const InputDecoration(labelText: 'Data Source'),
-                          readOnly: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 16),
+                _field('Site Display Name', controller.siteNameController),
+                _field('Tagline', controller.taglineController),
+                _field('Contact Email', controller.contactEmailController),
+                _field('Footer Text', controller.footerTextController),
+                _field('Copyright Text', controller.copyrightController),
               ],
             ),
-          )),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Social Links',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                _field('Twitter / X', controller.twitterController),
+                _field('YouTube', controller.youtubeController),
+                _field('Telegram', controller.telegramController),
+                _field('LinkedIn', controller.linkedinController),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.storage_rounded, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text(
+                      'Backend Integration',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  initialValue: EnvironmentConfig.supabaseUrl,
+                  decoration: const InputDecoration(
+                    labelText: 'SUPABASE_URL',
+                    helperText:
+                        'Configured via --dart-define=SUPABASE_URL=...',
+                  ),
+                  readOnly: true,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  initialValue: EnvironmentConfig.useSupabase
+                      ? 'Supabase (live)'
+                      : 'In-memory mock (no backend configured)',
+                  decoration: const InputDecoration(labelText: 'Data Source'),
+                  readOnly: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 48),
+      ],
     );
   }
 

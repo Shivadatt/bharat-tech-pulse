@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../data/models/article_model.dart';
 import '../responsive/responsive_breakpoints.dart';
 import 'article_meta_widget.dart';
+import 'article_thumbnail.dart';
 import 'category_chip.dart';
 
 class FeaturedArticleCard extends StatefulWidget {
@@ -63,11 +64,9 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  article.featuredImage,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Container(color: theme.colorScheme.surface),
+                ArticleThumbnail(
+                  url: article.featuredImage,
+                  fallbackIcon: null,
                 ),
                 Container(
                   decoration: BoxDecoration(
@@ -84,9 +83,13 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
                 Positioned(
                   top: 20,
                   left: 20,
-                  child: CategoryChip(
-                    label: article.categoryName,
-                    slug: article.categorySlug,
+                  right: 20,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: CategoryChip(
+                      label: article.categoryName,
+                      slug: article.categorySlug,
+                    ),
                   ),
                 ),
               ],
@@ -169,19 +172,21 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
           children: [
             AspectRatio(
               aspectRatio: 16 / 9,
-              child: Image.network(
-                article.featuredImage,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Container(color: theme.colorScheme.surface),
+              child: ArticleThumbnail(
+                url: article.featuredImage,
+                fallbackIcon: null,
               ),
             ),
             Positioned(
               top: 14,
               left: 14,
-              child: CategoryChip(
-                label: article.categoryName,
-                slug: article.categorySlug,
+              right: 14,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: CategoryChip(
+                  label: article.categoryName,
+                  slug: article.categorySlug,
+                ),
               ),
             ),
           ],
@@ -204,9 +209,14 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
               Text(
                 article.title,
                 style: theme.textTheme.headlineMedium?.copyWith(
+                  // The stacked layout is used below 1440px, where a tablet-width
+                  // card looked under-typed at the default 18px.
+                  fontSize: ResponsiveBreakpoints.isTablet(context) ? 22 : null,
                   fontWeight: FontWeight.bold,
                   color: _isHovered ? theme.colorScheme.primary : null,
                 ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 10),
               Text(

@@ -13,7 +13,8 @@ class MockMediaRepository implements MediaRepository {
       id: 'media-1',
       fileName: 'ai-summit-hero.jpg',
       storagePath: 'india_tech/ai-summit-hero.jpg',
-      publicUrl: 'https://images.unsplash.com/photo-1677442136015-f60dec4415f1',
+      publicUrl:
+          'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1600&q=80',
       mimeType: 'image/jpeg',
       fileSize: 284160,
       width: 1600,

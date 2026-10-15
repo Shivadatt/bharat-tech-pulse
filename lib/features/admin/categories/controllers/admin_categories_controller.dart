@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/errors/app_exceptions.dart';
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/category_model.dart';
 import '../../../../data/repositories/category_repository.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 
 /// Repository-backed CMS for categories. Reads go through
 /// [CategoryRepository.getCategoriesForAdmin] so archived rows are visible;
@@ -46,7 +48,23 @@ class AdminCategoriesController extends GetxController {
     return true;
   }
 
+  /// UI gating is the courtesy; `categories_insert/update_site_editor` and
+  /// `categories_delete_site_admin` are the rule. Refuse locally too, so a
+  /// stale widget is never the only check.
+  bool _blocked(
+    bool Function(AdminRole role) capability,
+    String message,
+  ) {
+    if (AdminAuthController.allows(capability)) return false;
+    _fail(message);
+    return true;
+  }
+
   Future<bool> createCategory(CategoryModel draft) async {
+    if (_blocked(RolePermissions.canManageContent,
+            'Only editors and admins can change the category taxonomy.')) {
+      return false;
+    }
     if (!_validate(draft)) return false;
     try {
       final created = await categoryRepository.createCategory(draft);
@@ -63,6 +81,10 @@ class AdminCategoriesController extends GetxController {
   }
 
   Future<bool> updateCategory(CategoryModel category) async {
+    if (_blocked(RolePermissions.canManageContent,
+            'Only editors and admins can change the category taxonomy.')) {
+      return false;
+    }
     if (!_validate(category, ignoreId: category.id)) return false;
     try {
       final ok = await categoryRepository.updateCategory(category);
@@ -70,7 +92,15 @@ class AdminCategoriesController extends GetxController {
         _fail('The category no longer exists.');
         return false;
       }
-      categories[categoryIndex(category.id)] = category;
+      final index = categoryIndex(category.id);
+      // A -1 index here threw RangeError on `categories[-1] = ...`: the write
+      // had already succeeded remotely, but the CMS showed a red error and
+      // kept the stale row on screen.
+      if (index == -1) {
+        categories.add(category);
+      } else {
+        categories[index] = category;
+      }
       Get.snackbar('Updated', 'Category saved.',
           backgroundColor: Colors.green, colorText: Colors.white);
       return true;
@@ -86,6 +116,10 @@ class AdminCategoriesController extends GetxController {
       categories.indexWhere((c) => c.id == id);
 
   Future<bool> deleteCategory(String id) async {
+    if (_blocked(RolePermissions.canDeleteRecords,
+        'Only site admins can delete categories.')) {
+      return false;
+    }
     try {
       final ok = await categoryRepository.deleteCategory(id);
       if (!ok) {

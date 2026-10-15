@@ -40,4 +40,15 @@ class ResponsiveBreakpoints {
 
   static bool isMobileSmall(BuildContext context) =>
       MediaQuery.of(context).size.width < mobile;
+
+  /// Width for a dialog BODY: the wanted width when it fits, otherwise what is
+  /// actually left. A fixed 360px body is wider than a 375px phone and
+  /// overflows. The subtraction mirrors AlertDialog's own chrome, which the
+  /// body width does not include: 40px inset padding on each side of the dialog
+  /// (80) plus 24px content padding on each side (48).
+  static double dialogWidth(BuildContext context, double wanted) {
+    final available = MediaQuery.sizeOf(context).width - 128;
+    if (available <= 0) return wanted;
+    return available < wanted ? available : wanted;
+  }
 }

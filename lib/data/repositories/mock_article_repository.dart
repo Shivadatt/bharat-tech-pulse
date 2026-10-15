@@ -1,3 +1,4 @@
+import '../../core/errors/app_exceptions.dart';
 import '../models/article_model.dart';
 import '../services/mock_data_source.dart';
 import 'article_repository.dart';
@@ -12,7 +13,7 @@ class MockArticleRepository implements ArticleRepository {
   /// Supabase implementation will enforce via RLS.
   bool _isPubliclyVisible(ArticleModel a) {
     final now = DateTime.now();
-    return a.status == ArticleStatus.published ||
+    return (a.status == ArticleStatus.published && !a.publishedAt.isAfter(now)) ||
         (a.status == ArticleStatus.scheduled &&
             a.scheduledFor != null &&
             !a.scheduledFor!.isAfter(now));
@@ -132,6 +133,7 @@ class MockArticleRepository implements ArticleRepository {
   @override
   Future<ArticleModel> createArticle(ArticleModel article) async {
     await Future.delayed(const Duration(milliseconds: 100));
+    _ensureSlugIsUnique(article);
     _storage.insert(0, article);
     return article;
   }
@@ -141,8 +143,22 @@ class MockArticleRepository implements ArticleRepository {
     await Future.delayed(const Duration(milliseconds: 100));
     final index = _storage.indexWhere((a) => a.id == article.id);
     if (index == -1) return false;
+    _ensureSlugIsUnique(article);
     _storage[index] = article;
     return true;
+  }
+
+  /// `posts` is `UNIQUE (site_id, slug)` and the mock holds one site, so a
+  /// duplicate slug must fail here exactly like the backend's 23505 does.
+  /// Otherwise the local CMS happily stores two rows per URL and
+  /// `getArticleBySlug` silently orphaned one of them.
+  void _ensureSlugIsUnique(ArticleModel article) {
+    if (_storage.any(
+        (a) => a.slug == article.slug && a.id != article.id)) {
+      throw const ValidationException(
+        'An article with this slug already exists.',
+      );
+    }
   }
 
   @override

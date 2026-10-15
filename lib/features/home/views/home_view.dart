@@ -256,17 +256,23 @@ class _HomeLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mirror the real grid: Latest Technology is one column under 650px, so a
+    // two-box placeholder there would show a layout that never follows.
+    final twoUp = MediaQuery.sizeOf(context).width >= 650;
+
     return ResponsiveContainer(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
-        children: const [
-          LoadingSkeleton(height: 380, borderRadius: 20),
-          SizedBox(height: 36),
+        children: [
+          const LoadingSkeleton(height: 380, borderRadius: 20),
+          const SizedBox(height: 36),
           Row(
             children: [
-              Expanded(child: LoadingSkeleton(height: 240, borderRadius: 14)),
-              SizedBox(width: 20),
-              Expanded(child: LoadingSkeleton(height: 240, borderRadius: 14)),
+              const Expanded(child: LoadingSkeleton(height: 240, borderRadius: 14)),
+              if (twoUp) ...[
+                const SizedBox(width: 20),
+                const Expanded(child: LoadingSkeleton(height: 240, borderRadius: 14)),
+              ],
             ],
           ),
         ],

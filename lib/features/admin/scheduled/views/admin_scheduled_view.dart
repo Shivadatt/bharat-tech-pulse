@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../data/models/article_model.dart';
+import '../../../../shared/responsive/responsive_breakpoints.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../../shared/widgets/admin_state_view.dart';
 import '../controllers/admin_scheduled_controller.dart';
@@ -59,18 +60,10 @@ class AdminScheduledView extends GetView<AdminScheduledController> {
                           '${post.categoryName} • ${_when(post.scheduledFor)} • '
                           'By ${post.author.name}',
                         ),
-                        trailing: Wrap(
-                          spacing: 6,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () => _reschedule(post),
-                              child: const Text('Reschedule'),
-                            ),
-                            TextButton(
-                              onPressed: () => controller.publishNow(post),
-                              child: const Text('Publish now'),
-                            ),
-                          ],
+                        trailing: _ScheduledActions(
+                          post: post,
+                          controller: controller,
+                          onReschedule: () => _reschedule(post),
                         ),
                       );
                     },
@@ -102,5 +95,58 @@ class AdminScheduledView extends GetView<AdminScheduledController> {
     );
     if (picked == null) return;
     await controller.reschedule(post, picked);
+  }
+}
+
+/// 'Reschedule' plus 'Publish now' want ~230px and a ListTile lays its trailing
+/// out beside the title, so on a phone the buttons spill past the tile edge and
+/// squeeze the title away. Narrow screens fold the same two commands into an
+/// overflow menu, like the article manager does.
+class _ScheduledActions extends StatelessWidget {
+  final ArticleModel post;
+  final AdminScheduledController controller;
+  final VoidCallback onReschedule;
+
+  const _ScheduledActions({
+    required this.post,
+    required this.controller,
+    required this.onReschedule,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (ResponsiveBreakpoints.isMobileSmall(context)) {
+      return PopupMenuButton<String>(
+        tooltip: 'Schedule actions',
+        icon: const Icon(Icons.more_vert_rounded, size: 20),
+        onSelected: (value) {
+          switch (value) {
+            case 'reschedule':
+              onReschedule();
+            case 'publish':
+              controller.publishNow(post);
+          }
+        },
+        itemBuilder: (context) => const [
+          PopupMenuItem<String>(
+              value: 'reschedule', child: Text('Reschedule')),
+          PopupMenuItem<String>(value: 'publish', child: Text('Publish now')),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: 6,
+      children: [
+        OutlinedButton(
+          onPressed: onReschedule,
+          child: const Text('Reschedule'),
+        ),
+        TextButton(
+          onPressed: () => controller.publishNow(post),
+          child: const Text('Publish now'),
+        ),
+      ],
+    );
   }
 }

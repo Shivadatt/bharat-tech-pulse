@@ -119,6 +119,7 @@ void main() async {
         Get.find<SeoService>().updateMeta(
           title: 'Page Not Found',
           description: SiteConfig.description,
+          robots: 'noindex, follow',
         );
       }
 

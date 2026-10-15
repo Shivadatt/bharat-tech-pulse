@@ -24,7 +24,12 @@ class AdminLoginView extends GetView<AdminAuthController> {
                 side: BorderSide(color: theme.colorScheme.outline),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(36),
+                // 36px of inset on a 320px phone leaves ~180px of content
+                // width, which the header row and fields cannot fit.
+                padding: EdgeInsets.symmetric(
+                  horizontal: MediaQuery.sizeOf(context).width < 420 ? 20 : 36,
+                  vertical: 32,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -40,22 +45,28 @@ class AdminLoginView extends GetView<AdminAuthController> {
                           child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 24),
                         ),
                         const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              SiteConfig.siteName,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                SiteConfig.siteName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Editorial CMS Portal',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary,
+                              Text(
+                                'Editorial CMS Portal',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -124,7 +135,8 @@ class AdminLoginView extends GetView<AdminAuthController> {
                     if (!EnvironmentConfig.useSupabase) ...[
                       const SizedBox(height: 16),
                       Text(
-                        'Demo CMS — sign-in is mocked and grants no real access.',
+                        'Demo mode: the content you see is mocked and no backend is '
+                        'configured, so signing in is unavailable.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.textTheme.bodySmall?.color,

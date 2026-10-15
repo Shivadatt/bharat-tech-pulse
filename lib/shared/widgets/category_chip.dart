@@ -37,6 +37,8 @@ class CategoryChip extends StatelessWidget {
           ),
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelMedium?.copyWith(
               color: isSelected
                   ? (theme.brightness == Brightness.dark ? Colors.black : Colors.white)

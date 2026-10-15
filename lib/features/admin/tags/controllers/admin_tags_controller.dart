@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/errors/app_exceptions.dart';
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/tag_model.dart';
 import '../../../../data/repositories/category_repository.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 
 /// Repository-backed CMS for topic tags.
 class AdminTagsController extends GetxController {
@@ -43,7 +45,19 @@ class AdminTagsController extends GetxController {
     return true;
   }
 
+  /// `tags_delete_site_admin` is the rule; refusing locally keeps a stale
+  /// widget from being the only check.
+  bool _blocked(bool Function(AdminRole role) capability, String message) {
+    if (AdminAuthController.allows(capability)) return false;
+    _fail(message);
+    return true;
+  }
+
   Future<bool> createTag(TagModel draft) async {
+    if (_blocked(RolePermissions.canManageContent,
+        'Only editors and admins can create tags.')) {
+      return false;
+    }
     if (!_validate(draft)) return false;
     try {
       final created = await categoryRepository.createTag(draft);
@@ -60,6 +74,10 @@ class AdminTagsController extends GetxController {
   }
 
   Future<bool> deleteTag(String id) async {
+    if (_blocked(RolePermissions.canDeleteRecords,
+        'Only admins can delete tags.')) {
+      return false;
+    }
     try {
       final ok = await categoryRepository.deleteTag(id);
       if (!ok) {

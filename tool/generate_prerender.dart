@@ -334,6 +334,7 @@ String _page({
     ..writeln('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
     ..writeln('<title>${esc(meta.title)}</title>')
     ..writeln('<meta name="description" content="${esc(meta.description)}">')
+    ..writeln('<meta name="robots" content="${esc(meta.robots)}">')
     ..writeln('<link rel="canonical" href="${esc(meta.canonicalUrl)}">')
     ..writeln('<meta property="og:type" content="${esc(meta.ogType)}">')
     ..writeln('<meta property="og:site_name" content="${esc(SiteConfig.siteName)}">')

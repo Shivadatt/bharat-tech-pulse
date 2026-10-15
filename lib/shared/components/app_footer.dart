@@ -27,24 +27,50 @@ class AppFooter extends StatelessWidget {
             const SizedBox(height: 40),
             const Divider(),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    SiteConfig.copyrightNotice,
-                    style: theme.textTheme.bodySmall,
+            // The tagline is ~235px of unbreakable text; beside an Expanded
+            // copyright it squeezes the legal line to a few characters per
+            // line on a phone, so the pair stacks there.
+            ResponsiveBreakpoints.isMobileSmall(context)
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        SiteConfig.copyrightNotice,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Independent • Unbiased • Made in India',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          SiteConfig.copyrightNotice,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                      Flexible(
+                        child: Text(
+                          'Independent • Unbiased • Made in India',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                Text(
-                  'Independent • Unbiased • Made in India',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),

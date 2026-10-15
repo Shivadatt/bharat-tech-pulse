@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../app/config/site_config.dart';
 import '../../../core/seo/seo_service.dart';
 import '../../../data/models/article_model.dart';
 import '../../../data/repositories/article_repository.dart';
@@ -24,9 +25,10 @@ class SearchPageController extends GetxController {
   void onInit() {
     super.onInit();
     seoService.updateMeta(
-      title: 'Search Articles — Bharat Tech Pulse',
+      title: 'Search Articles — ${SiteConfig.siteName}',
       description: 'Search technology guides, smartphone comparisons, and AI tutorials.',
       canonicalPath: '/search',
+      robots: 'noindex, follow',
     );
 
     final initialQuery = Get.parameters['q'] ?? '';

@@ -17,14 +17,28 @@ class LoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0);
+    final wanted = width;
 
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth;
+        // Call sites ask for a nominal width (a 400px bar, a 200px bar). On a
+        // 320-375px phone that overflows its slot, so the request is a
+        // preference and never a hard size.
+        final clamped = wanted == null ||
+                !available.isFinite ||
+                wanted <= available
+            ? wanted
+            : available;
+        return Container(
+          width: clamped,
+          height: height,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(borderRadius),
+          ),
+        );
+      },
     );
   }
 }

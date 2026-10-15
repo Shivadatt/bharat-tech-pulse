@@ -6,6 +6,7 @@ class SeoDom {
     required String canonicalUrl,
     required String ogImage,
     required String ogType,
+    required String robots,
     required String ogSiteName,
     required String twitterHandle,
     Map<String, dynamic>? jsonLd,

@@ -32,7 +32,7 @@ class AdminTrendingController extends GetxController {
     isLoading.value = true;
     errorMessage.value = null;
     try {
-      posts.assignAll(await postAdminRepository.listAll(limit: pageSize));
+      posts.assignAll(await _listEveryPost());
     } on AppException catch (e) {
       errorMessage.value = e.message;
     } catch (_) {
@@ -40,6 +40,23 @@ class AdminTrendingController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// `listAll` is page-sized, so a single call only ever curates the newest
+  /// [pageSize] posts and the slot count under-reports the rest. Walk the
+  /// pages instead: the curation screen has to show every post, exactly like
+  /// the article manager's unpaginated admin read.
+  Future<List<ArticleModel>> _listEveryPost() async {
+    final all = <ArticleModel>[];
+    var offset = 0;
+    while (true) {
+      final page =
+          await postAdminRepository.listAll(limit: pageSize, offset: offset);
+      all.addAll(page);
+      if (page.length < pageSize) break;
+      offset += page.length;
+    }
+    return all;
   }
 
   Future<void> setTrending(ArticleModel post, bool value) async {

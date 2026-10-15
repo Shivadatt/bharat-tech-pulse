@@ -23,16 +23,21 @@ class BreadcrumbWidget extends StatelessWidget {
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 6,
+        runSpacing: 4,
         children: [
           InkWell(
             onTap: () => Get.toNamed('/'),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.home_outlined, size: 15, color: muted),
-                const SizedBox(width: 4),
-                Text('Home', style: TextStyle(color: muted, fontSize: 13)),
-              ],
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.home_outlined, size: 15, color: muted),
+                  const SizedBox(width: 4),
+                  Text('Home', style: TextStyle(color: muted, fontSize: 13)),
+                ],
+              ),
             ),
           ),
           ...items.expand((item) {
@@ -51,9 +56,13 @@ class BreadcrumbWidget extends StatelessWidget {
               else
                 InkWell(
                   onTap: () => Get.toNamed(item.route!),
-                  child: Text(
-                    item.label,
-                    style: TextStyle(color: muted, fontSize: 13),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                    child: Text(
+                      item.label,
+                      style: TextStyle(color: muted, fontSize: 13),
+                    ),
                   ),
                 ),
             ];

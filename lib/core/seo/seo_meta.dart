@@ -33,6 +33,12 @@ class SeoMeta {
   /// `og:type` value: `website`, `article`, …
   final String ogType;
 
+  /// The `robots` meta value. Defaults to `index, follow`; the not-found route
+  /// passes `noindex, follow` so a soft-404 URL is not added to the index.
+  /// SeoDom writes this on *every* apply so client-side navigation can never
+  /// leave a stale directive from the previous page.
+  final String robots;
+
   /// The JSON-LD document for this route (never null — see [page]).
   final Map<String, dynamic> jsonLd;
 
@@ -48,6 +54,7 @@ class SeoMeta {
     required this.canonicalUrl,
     required this.ogImage,
     required this.ogType,
+    required this.robots,
     required this.jsonLd,
     required this.properties,
     required this.names,
@@ -67,6 +74,7 @@ class SeoMeta {
     String? canonicalUrl,
     String? ogImage,
     String ogType = 'website',
+    String robots = 'index, follow',
     Map<String, dynamic>? jsonLd,
     Map<String, String> properties = const {},
     Map<String, String> names = const {},
@@ -83,6 +91,7 @@ class SeoMeta {
               : '${SiteConfig.domain}$canonicalPath'),
       ogImage: resolveImage(ogImage),
       ogType: ogType,
+      robots: robots,
       jsonLd: jsonLd ?? SeoSchema.siteGraph(),
       properties: properties,
       names: names,
@@ -101,6 +110,7 @@ class SeoMeta {
       canonicalUrl: url,
       ogImage: resolveImage(art.ogImage.isNotEmpty ? art.ogImage : art.featuredImage),
       ogType: 'article',
+      robots: 'index, follow',
       jsonLd: SeoSchema.articleGraph(
         title: art.title,
         description: description,
@@ -141,6 +151,7 @@ class SeoMeta {
       canonicalUrl: url,
       ogImage: resolveImage(cat.imageUrl.isNotEmpty ? cat.imageUrl : null),
       ogType: 'website',
+      robots: 'index, follow',
       jsonLd: SeoSchema.categoryGraph(
         name: cat.name,
         slug: cat.slug,

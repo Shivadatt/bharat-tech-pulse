@@ -107,6 +107,13 @@
 #    revalidation of assets, never stale code. That is why no rule in this file can
 #    ever downgrade freshness.
 # ---------------------------------------------------------------------------
+#    X-Robots-Tag: noindex is added to the auth-gated /admin family (nofollow,
+#    nothing there is worth crawling) and to the parameterised /search page and
+#    the /404 route (noindex, follow) so a crawler that reaches them via the SPA
+#    them via the SPA fallback is told to drop them without relying on the
+#    JavaScript-rendered <meta name="robots"> alone. Not in '/*', so each request
+#    still carries at most one X-Robots-Tag (no comma-join). Requires a real
+#    Pages deploy to take effect - `flutter run`'s shelf server ignores _headers.
 /
   Cache-Control: no-cache
 
@@ -121,12 +128,15 @@
 
 /admin
   Cache-Control: no-cache
+  X-Robots-Tag: noindex, nofollow
 
 /admin/*
   Cache-Control: no-cache
+  X-Robots-Tag: noindex, nofollow
 
 /search
   Cache-Control: no-cache
+  X-Robots-Tag: noindex, follow
 
 /about
   Cache-Control: no-cache
@@ -148,6 +158,7 @@
 
 /404
   Cache-Control: no-cache
+  X-Robots-Tag: noindex, follow
 
 /ai/
   Cache-Control: no-cache

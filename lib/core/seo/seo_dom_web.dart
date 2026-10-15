@@ -13,6 +13,7 @@ class SeoDom {
     required String canonicalUrl,
     required String ogImage,
     required String ogType,
+    required String robots,
     required String ogSiteName,
     required String twitterHandle,
     Map<String, dynamic>? jsonLd,
@@ -22,6 +23,9 @@ class SeoDom {
     web.document.title = title;
 
     _setMeta('name', 'description', description);
+    // Written on every apply so navigating away from a noindex page (404)
+    // resets the directive instead of leaving a stale one on an indexable page.
+    _setMeta('name', 'robots', robots);
 
     _setMeta('property', 'og:site_name', ogSiteName);
     _setMeta('property', 'og:title', title);

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../app/config/site_config.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../core/errors/app_exceptions.dart';
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../core/utils/slug_helper.dart';
 import '../../../../data/models/article_model.dart';
 import '../../../../data/models/author_model.dart';
 import '../../../../data/models/category_model.dart';
 import '../../../../data/repositories/article_repository.dart';
 import '../../../../data/repositories/category_repository.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 
 class AdminArticleController extends GetxController {
   final ArticleRepository articleRepository;
@@ -18,6 +22,7 @@ class AdminArticleController extends GetxController {
   });
 
   final RxBool isLoading = true.obs;
+  final RxnString loadError = RxnString();
   final RxList<ArticleModel> articles = <ArticleModel>[].obs;
   final RxList<CategoryModel> categories = <CategoryModel>[].obs;
   final RxList<AuthorModel> authors = <AuthorModel>[].obs;
@@ -72,6 +77,7 @@ class AdminArticleController extends GetxController {
   }
 
   Future<void> loadArticlesAndMeta() async {
+    loadError.value = null;
     try {
       isLoading.value = true;
       final arts = await articleRepository.getAllArticlesForAdmin();
@@ -82,6 +88,12 @@ class AdminArticleController extends GetxController {
 
       final auths = await categoryRepository.getAuthors();
       authors.assignAll(auths);
+    } on AppException catch (e) {
+      // Without this the list view sat on "loading forever" and the failure
+      // only surfaced as an unhandled async exception in the console.
+      loadError.value = e.message;
+    } catch (_) {
+      loadError.value = 'Could not load articles. Check the connection and retry.';
     } finally {
       isLoading.value = false;
     }
@@ -132,12 +144,21 @@ class AdminArticleController extends GetxController {
     altTextController.text = article.title;
     selectedCategorySlug.value = article.categorySlug;
     selectedAuthorId.value = article.author.id;
-    seoTitleController.text = article.title;
-    metaDescController.text = article.excerpt;
-    canonicalUrlController.text = 'https://bharattechpulse.in/article/${article.slug}';
-    ogTitleController.text = article.title;
-    ogDescController.text = article.excerpt;
-    ogImageController.text = article.featuredImage;
+    seoTitleController.text =
+        article.seoTitle.isNotEmpty ? article.seoTitle : article.title;
+    metaDescController.text = article.seoDescription.isNotEmpty
+        ? article.seoDescription
+        : article.excerpt;
+    canonicalUrlController.text = article.canonicalUrl.isNotEmpty
+        ? article.canonicalUrl
+        : '${SiteConfig.domain}/article/${article.slug}';
+    ogTitleController.text =
+        article.ogTitle.isNotEmpty ? article.ogTitle : article.title;
+    ogDescController.text = article.ogDescription.isNotEmpty
+        ? article.ogDescription
+        : article.excerpt;
+    ogImageController.text =
+        article.ogImage.isNotEmpty ? article.ogImage : article.featuredImage;
   }
 
   void initializeForCreate() {
@@ -149,8 +170,9 @@ class AdminArticleController extends GetxController {
     excerptController.clear();
     contentController.clear();
     tagsController.clear();
-    featuredImageController.text =
-        'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+    // A first-party, licensed asset. Hotlinking a stock CDN here would ship an
+    // unlicensed image into every new post's og:image.
+    featuredImageController.text = SiteConfig.defaultOgImage;
     altTextController.clear();
     seoTitleController.clear();
     metaDescController.clear();
@@ -169,6 +191,19 @@ class AdminArticleController extends GetxController {
   }
 
   Future<void> saveArticle({required String newStatus}) async {
+    // Anything that puts text in front of readers is an editorial decision:
+    // `posts_insert_staff` only accepts an author-tier status='draft' row, so
+    // the toolbar hides these actions and this check backs it up.
+    if (newStatus != 'draft' &&
+        !AdminAuthController.allows(RolePermissions.canPublish)) {
+      Get.snackbar(
+        'Not authorized',
+        'Only editors and admins can publish or schedule a post. Save it as a draft instead.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
     if (editorError.value.isNotEmpty) {
       Get.snackbar('Cannot Save', 'Resolve the editor error before saving.',
           backgroundColor: Colors.red, colorText: Colors.white);
@@ -185,6 +220,16 @@ class AdminArticleController extends GetxController {
     final slug = slugController.text.trim().isNotEmpty
         ? slugController.text.trim()
         : SlugHelper.toSlug(title);
+
+    // normalize_slug() deliberately returns NULL for a title with no URL-safe
+    // characters so callers raise instead of storing an empty slug, which would
+    // make the post unreachable and squat the one free '' slug.
+    if (slug.isEmpty) {
+      Get.snackbar('Slug Needed',
+          'This title has no URL-safe characters. Type a slug before saving.',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
 
     // Deep links to /admin/articles/create can land before onInit's metadata
     // load finishes; categories.first/authors.first below would then throw.
@@ -215,6 +260,25 @@ class AdminArticleController extends GetxController {
       orElse: () => ArticleStatus.published,
     );
 
+    // getArticleBySlug resolves the first match, so a duplicate slug orphans
+    // one row from every link, sitemap entry and redirect.
+    if (articles.any((a) => a.slug == slug && a.id != editingArticleId)) {
+      Get.snackbar('Slug in use',
+          'Another article already lives at /article/$slug. Choose a different slug.',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
+
+    // Curated flags and long-form extras have no editor in the form. Rebuild
+    // them from the stored row, otherwise saving a trending or featured post
+    // silently un-trends it and drops its FAQ / key-takeaway blocks.
+    final current = editingArticleId == null
+        ? null
+        : articles.firstWhereOrNull((a) => a.id == editingArticleId);
+
+    String orFallback(String typed, String fallback) =>
+        typed.trim().isEmpty ? fallback : typed.trim();
+
     final article = ArticleModel(
       id: editingArticleId ?? 'art-${DateTime.now().millisecondsSinceEpoch}',
       slug: slug,
@@ -232,25 +296,55 @@ class AdminArticleController extends GetxController {
           articleStatus == ArticleStatus.scheduled ? scheduleDate.value : publishDate.value,
       updatedAt: DateTime.now(),
       featuredImage: featuredImageController.text.trim(),
-      readingTimeMinutes: 5,
+      readingTimeMinutes: current?.readingTimeMinutes ?? 5,
       status: articleStatus,
       scheduledFor:
           articleStatus == ArticleStatus.scheduled ? scheduleDate.value : null,
+      isFeatured: current?.isFeatured ?? false,
+      isTrending: current?.isTrending ?? false,
+      isPopular: current?.isPopular ?? false,
+      viewCount: current?.viewCount ?? 0,
+      keyTakeaways: current?.keyTakeaways ?? const [],
+      faqs: current?.faqs ?? const [],
+      toc: current?.toc ?? const [],
+      seoTitle: orFallback(seoTitleController.text, title),
+      seoDescription:
+          orFallback(metaDescController.text, excerptController.text.trim()),
+      canonicalUrl: orFallback(
+          canonicalUrlController.text, '${SiteConfig.domain}/article/$slug'),
+      ogTitle: orFallback(ogTitleController.text, title),
+      ogDescription: orFallback(
+          ogDescController.text, metaDescController.text.trim()),
+      ogImage: orFallback(ogImageController.text, featuredImageController.text.trim()),
     );
 
-    if (editingArticleId != null) {
-      final updated = await articleRepository.updateArticle(article);
-      if (!updated) {
-        Get.snackbar('Not Found', 'The article being edited no longer exists.',
-            backgroundColor: Colors.red, colorText: Colors.white);
-        return;
+    try {
+      if (editingArticleId != null) {
+        final updated = await articleRepository.updateArticle(article);
+        if (!updated) {
+          Get.snackbar('Not Found', 'The article being edited no longer exists.',
+              backgroundColor: Colors.red, colorText: Colors.white);
+          return;
+        }
+        Get.snackbar('Updated', 'Article updated successfully!',
+            backgroundColor: Colors.green, colorText: Colors.white);
+      } else {
+        final created = await articleRepository.createArticle(article);
+        // The Supabase row carries a server-generated uuid; keeping the
+        // client-minted id would make the next update/delete key off a row
+        // that does not exist.
+        editingArticleId = created.id;
+        Get.snackbar('Created', 'Article created as $newStatus!',
+            backgroundColor: Colors.green, colorText: Colors.white);
       }
-      Get.snackbar('Updated', 'Article updated successfully!',
-          backgroundColor: Colors.green, colorText: Colors.white);
-    } else {
-      await articleRepository.createArticle(article);
-      Get.snackbar('Created', 'Article created as $newStatus!',
-          backgroundColor: Colors.green, colorText: Colors.white);
+    } on AppException catch (e) {
+      Get.snackbar('Not Saved', e.message,
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    } catch (_) {
+      Get.snackbar('Not Saved', 'The article could not be written to the backend.',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
     }
 
     await loadArticlesAndMeta();
@@ -258,6 +352,13 @@ class AdminArticleController extends GetxController {
   }
 
   Future<void> deleteArticle(String id) async {
+    // RLS gate is `posts_delete_site_admin`; refuse even if a stale widget
+    // still shows the button or the drawer was built before a role downgrade.
+    if (!AdminAuthController.allows(RolePermissions.canDeleteRecords)) {
+      Get.snackbar('Not authorized', 'Only site admins can delete articles.',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
         title: const Text('Delete Article?'),
@@ -283,7 +384,17 @@ class AdminArticleController extends GetxController {
     );
     if (confirmed != true) return;
 
-    await articleRepository.deleteArticle(id);
+    try {
+      await articleRepository.deleteArticle(id);
+    } on AppException catch (e) {
+      Get.snackbar('Not Deleted', e.message,
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    } catch (_) {
+      Get.snackbar('Not Deleted', 'The article could not be removed.',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
     await loadArticlesAndMeta();
     Get.snackbar('Deleted', 'Article removed from database',
         backgroundColor: Colors.grey.shade900, colorText: Colors.white);

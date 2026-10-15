@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/category_model.dart';
+import '../../../../shared/responsive/responsive_breakpoints.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../../shared/widgets/admin_state_view.dart';
 import '../controllers/admin_categories_controller.dart';
@@ -12,15 +15,21 @@ class AdminCategoriesView extends GetView<AdminCategoriesController> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Taxonomy writes are `is_site_editor` of the site, hard deletes stay
+    // `is_site_admin` — matching the two RLS policies on `categories`.
+    final canEdit = AdminAuthController.allows(RolePermissions.canManageContent);
+    final canDelete =
+        AdminAuthController.allows(RolePermissions.canDeleteRecords);
 
     return AdminScaffold(
       title: 'Categories & Taxonomies',
       actions: [
-        ElevatedButton.icon(
-          onPressed: () => _openForm(context),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('New Category'),
-        ),
+        if (canEdit)
+          ElevatedButton.icon(
+            onPressed: () => _openForm(context),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('New Category'),
+          ),
       ],
       body: Obx(() {
         final cats = controller.categories;
@@ -39,10 +48,14 @@ class AdminCategoriesView extends GetView<AdminCategoriesController> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Editorial Hubs (${cats.length})',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                      Flexible(
+                        child: Text(
+                          'Editorial Hubs (${cats.length})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded),
@@ -59,6 +72,11 @@ class AdminCategoriesView extends GetView<AdminCategoriesController> {
                     itemBuilder: (context, index) {
                       final cat = cats[index];
                       return ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal:
+                                ResponsiveBreakpoints.isMobileSmall(context)
+                                    ? 8
+                                    : 16),
                         leading: CircleAvatar(
                           backgroundColor: theme.colorScheme.primary.withAlpha(25),
                           child: Text(
@@ -81,15 +99,25 @@ class AdminCategoriesView extends GetView<AdminCategoriesController> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18),
-                              onPressed: () => _openForm(context, existing: cat),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded,
-                                  size: 18, color: Colors.red),
-                              onPressed: () => _confirmDelete(cat),
-                            ),
+                            if (canEdit)
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                    minWidth: 40, minHeight: 40),
+                                icon: const Icon(Icons.edit_outlined, size: 18),
+                                onPressed: () => _openForm(context, existing: cat),
+                              ),
+                            if (canDelete)
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                    minWidth: 40, minHeight: 40),
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    size: 18, color: Colors.red),
+                                onPressed: () => _confirmDelete(cat),
+                              ),
                           ],
                         ),
                       );
@@ -155,7 +183,7 @@ class AdminCategoriesView extends GetView<AdminCategoriesController> {
       AlertDialog(
         title: Text(existing == null ? 'New Category' : 'Edit Category'),
         content: SizedBox(
-          width: 360,
+          width: ResponsiveBreakpoints.dialogWidth(context, 360),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -179,5 +207,12 @@ class AdminCategoriesView extends GetView<AdminCategoriesController> {
         ],
       ),
     );
+    // Released once the dialog is gone so repeated open/close cycles do not
+    // leak these five controllers.
+    nameC.dispose();
+    slugC.dispose();
+    descC.dispose();
+    subC.dispose();
+    iconC.dispose();
   }
 }

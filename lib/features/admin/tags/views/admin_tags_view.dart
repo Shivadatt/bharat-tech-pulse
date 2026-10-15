@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/tag_model.dart';
+import '../../../../shared/responsive/responsive_breakpoints.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../../shared/widgets/admin_state_view.dart';
 import '../controllers/admin_tags_controller.dart';
@@ -16,14 +19,18 @@ class AdminTagsView extends GetView<AdminTagsController> {
     return AdminScaffold(
       title: 'Topic Tags Manager',
       actions: [
-        ElevatedButton.icon(
-          onPressed: () => _openForm(context),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Add Tag'),
-        ),
+        if (AdminAuthController.allows(RolePermissions.canManageContent))
+          ElevatedButton.icon(
+            onPressed: () => _openForm(context),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Add Tag'),
+          ),
       ],
       body: Obx(() {
         final tags = controller.tags;
+        // `tags_delete_site_admin` — editors see the taxonomy but cannot prune it.
+        final canDeleteTags =
+            AdminAuthController.allows(RolePermissions.canDeleteRecords);
         return AdminStateView(
           isLoading: controller.isLoading.value,
           error: controller.errorMessage.value,
@@ -39,10 +46,14 @@ class AdminTagsView extends GetView<AdminTagsController> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Indexed Tags (${tags.length})',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                      Flexible(
+                        child: Text(
+                          'Indexed Tags (${tags.length})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded),
@@ -60,7 +71,8 @@ class AdminTagsView extends GetView<AdminTagsController> {
                         label: Text('${t.name} (${t.count})'),
                         backgroundColor: theme.colorScheme.surface,
                         deleteIcon: const Icon(Icons.close_rounded, size: 14),
-                        onDeleted: () => _confirmDelete(t),
+                        onDeleted:
+                            canDeleteTags ? () => _confirmDelete(t) : null,
                       );
                     }).toList(),
                   ),
@@ -110,7 +122,7 @@ class AdminTagsView extends GetView<AdminTagsController> {
       AlertDialog(
         title: const Text('Add Tag'),
         content: SizedBox(
-          width: 320,
+          width: ResponsiveBreakpoints.dialogWidth(context, 320),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -126,5 +138,9 @@ class AdminTagsView extends GetView<AdminTagsController> {
         ],
       ),
     );
+    // Released once the dialog is gone so repeated open/close cycles do not
+    // leak these two controllers.
+    nameC.dispose();
+    slugC.dispose();
   }
 }

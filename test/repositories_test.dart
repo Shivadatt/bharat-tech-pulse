@@ -1,8 +1,38 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:india_tech_web/core/errors/app_exceptions.dart';
 import 'package:india_tech_web/data/models/article_model.dart';
 import 'package:india_tech_web/data/models/author_model.dart';
 import 'package:india_tech_web/data/repositories/mock_article_repository.dart';
 import 'package:india_tech_web/data/repositories/mock_category_repository.dart';
+
+const AuthorModel _testAuthor = AuthorModel(
+  id: 'auth-1',
+  slug: 'author',
+  name: 'Author',
+  role: 'Writer',
+  bio: '',
+  avatarUrl: '',
+  twitter: '',
+  linkedin: '',
+  email: '',
+);
+
+ArticleModel _article(String id, String slug) => ArticleModel(
+      id: id,
+      slug: slug,
+      title: 'Story about $slug',
+      excerpt: 'Short excerpt',
+      content: 'Long body',
+      categorySlug: 'ai',
+      categoryName: 'AI & Tools',
+      subcategory: 'Indic LLMs',
+      tags: const ['test'],
+      author: _testAuthor,
+      publishedAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      featuredImage: 'https://example.com/img.jpg',
+      readingTimeMinutes: 4,
+    );
 
 void main() {
   group('Mock Repositories Tests', () {
@@ -76,6 +106,28 @@ void main() {
       expect(deleted, true);
       final afterDelete = await articleRepo.getArticleBySlug('test-crud-slug');
       expect(afterDelete, isNull);
+    });
+
+    test('MockArticleRepository enforces the slug uniqueness the backend has',
+        () async {
+      await articleRepo.createArticle(_article('slug-1', 'shared-slug'));
+
+      // posts is UNIQUE (site_id, slug): a duplicate has to fail the way the
+      // Supabase 23505 does, not store a second row nobody can link to.
+      await expectLater(
+        articleRepo.createArticle(_article('slug-2', 'shared-slug')),
+        throwsA(isA<ValidationException>()),
+      );
+
+      await articleRepo.createArticle(_article('slug-3', 'own-slug'));
+      await expectLater(
+        articleRepo.updateArticle(_article('slug-3', 'shared-slug')),
+        throwsA(isA<ValidationException>()),
+      );
+
+      // Re-saving a row under its own slug is not a collision.
+      await articleRepo.updateArticle(_article('slug-3', 'own-slug'));
+      expect(await articleRepo.getArticleBySlug('own-slug'), isNotNull);
     });
 
     test('MockCategoryRepository returns categories and authors', () async {

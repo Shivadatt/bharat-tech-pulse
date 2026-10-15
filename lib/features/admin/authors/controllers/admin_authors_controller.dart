@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/errors/app_exceptions.dart';
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/author_model.dart';
 import '../../../../data/repositories/category_repository.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 
 /// Repository-backed CMS for author bylines. Reads use
 /// [CategoryRepository.getAuthorsForAdmin] (archived bylines included).
@@ -44,7 +46,22 @@ class AdminAuthorsController extends GetxController {
     return true;
   }
 
+  /// `authors_insert/update/delete_site_admin` is the enforcement; this keeps
+  /// the panel from advertising a write the server would reject.
+  bool _blocked(
+    bool Function(AdminRole role) capability,
+    String message,
+  ) {
+    if (AdminAuthController.allows(capability)) return false;
+    _fail(message);
+    return true;
+  }
+
   Future<bool> createAuthor(AuthorModel draft) async {
+    if (_blocked(RolePermissions.canManageSettings,
+        'Only site admins can add contributor bylines.')) {
+      return false;
+    }
     if (!_validate(draft)) return false;
     try {
       final created = await categoryRepository.createAuthor(draft);
@@ -61,6 +78,10 @@ class AdminAuthorsController extends GetxController {
   }
 
   Future<bool> updateAuthor(AuthorModel author) async {
+    if (_blocked(RolePermissions.canManageSettings,
+        'Only site admins can edit contributor bylines.')) {
+      return false;
+    }
     if (!_validate(author)) return false;
     try {
       final ok = await categoryRepository.updateAuthor(author);
@@ -82,6 +103,10 @@ class AdminAuthorsController extends GetxController {
   }
 
   Future<bool> deleteAuthor(String id) async {
+    if (_blocked(RolePermissions.canDeleteRecords,
+        'Only site admins can delete contributor bylines.')) {
+      return false;
+    }
     try {
       final ok = await categoryRepository.deleteAuthor(id);
       if (!ok) {

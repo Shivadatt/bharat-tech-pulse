@@ -8,11 +8,14 @@ import '../../../shared/components/newsletter_card.dart';
 import '../../../shared/components/section_header.dart';
 import '../../../shared/layouts/content_with_sidebar.dart';
 import '../../../shared/layouts/public_scaffold.dart';
+import '../../../shared/responsive/responsive_breakpoints.dart';
 import '../../../shared/responsive/responsive_container.dart';
 import '../../../shared/responsive/responsive_grid.dart';
 import '../../../shared/skeletons/error_state.dart';
 import '../../../shared/skeletons/loading_skeleton.dart';
 import '../../../shared/widgets/article_card.dart';
+import '../../../shared/widgets/article_thumbnail.dart';
+import '../../../shared/widgets/author_avatar.dart';
 import '../../../shared/widgets/author_info_widget.dart';
 import '../../../shared/widgets/category_chip.dart';
 import '../../../shared/widgets/popular_article_card.dart';
@@ -43,6 +46,7 @@ class ArticleView extends GetView<ArticleController> {
 
         final article = controller.article.value!;
         final articleUrl = '${SiteConfig.domain}/article/${article.slug}';
+        final compact = ResponsiveBreakpoints.isMobileSmall(context);
 
         return ResponsiveContainer(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -77,6 +81,7 @@ class ArticleView extends GetView<ArticleController> {
                     Text(
                       article.title,
                       style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                            fontSize: compact ? 24 : null,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.6,
                             height: 1.2,
@@ -101,9 +106,10 @@ class ArticleView extends GetView<ArticleController> {
                       spacing: 12,
                       runSpacing: 8,
                       children: [
-                        CircleAvatar(
+                        AuthorAvatar(
+                          name: article.author.name,
+                          avatarUrl: article.author.avatarUrl,
                           radius: 20,
-                          backgroundImage: NetworkImage(article.author.avatarUrl),
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,13 +139,9 @@ class ArticleView extends GetView<ArticleController> {
                       borderRadius: BorderRadius.circular(16),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
-                        child: Image.network(
-                          article.featuredImage,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: Theme.of(context).colorScheme.surface,
-                            child: const Icon(Icons.image, size: 50),
-                          ),
+                        child: ArticleThumbnail(
+                          url: article.featuredImage,
+                          fallbackIcon: Icons.image,
                         ),
                       ),
                     ),

@@ -196,6 +196,12 @@ class ArticleModel {
     List<String>? keyTakeaways,
     List<ArticleFaq>? faqs,
     List<ArticleTocItem>? toc,
+    String? seoTitle,
+    String? seoDescription,
+    String? canonicalUrl,
+    String? ogTitle,
+    String? ogDescription,
+    String? ogImage,
   }) {
     return ArticleModel(
       id: id ?? this.id,
@@ -221,6 +227,12 @@ class ArticleModel {
       keyTakeaways: keyTakeaways ?? this.keyTakeaways,
       faqs: faqs ?? this.faqs,
       toc: toc ?? this.toc,
+      seoTitle: seoTitle ?? this.seoTitle,
+      seoDescription: seoDescription ?? this.seoDescription,
+      canonicalUrl: canonicalUrl ?? this.canonicalUrl,
+      ogTitle: ogTitle ?? this.ogTitle,
+      ogDescription: ogDescription ?? this.ogDescription,
+      ogImage: ogImage ?? this.ogImage,
     );
   }
 }

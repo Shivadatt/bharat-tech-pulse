@@ -5,8 +5,10 @@ import 'package:get/get.dart';
 
 import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/platform/file_selector.dart';
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/media_model.dart';
 import '../../../../data/repositories/media_repository.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 
 /// Media library CMS. Lists Storage-backed rows, uploads via the browser
 /// picker and keeps alt-text/delete scoped to the repository result.
@@ -27,7 +29,12 @@ class AdminMediaController extends GetxController {
   final RxList<MediaModel> items = <MediaModel>[].obs;
 
   int _offset = 0;
-  bool get hasMore => _offset >= items.length;
+
+  /// True only when the last fetch filled a whole page, which is the only
+  /// signal the repository gives that more rows remain. `_offset >= items.length`
+  /// was always true, so the library looked endlessly pageable. Reactive so the
+  /// Load more control disappears once the tail page has been fetched.
+  final RxBool hasMore = false.obs;
 
   @override
   void onInit() {
@@ -48,6 +55,7 @@ class AdminMediaController extends GetxController {
         items.addAll(page);
       }
       _offset += page.length;
+      hasMore.value = page.length == pageSize;
     } on AppException catch (e) {
       errorMessage.value = e.message;
     } catch (_) {
@@ -58,13 +66,14 @@ class AdminMediaController extends GetxController {
   }
 
   Future<void> loadMore() async {
-    if (isLoading.value) return;
+    if (isLoading.value || !hasMore.value) return;
     isLoading.value = true;
     try {
       final page =
           await mediaRepository.listMedia(limit: pageSize, offset: _offset);
       items.addAll(page);
       _offset += page.length;
+      hasMore.value = page.length == pageSize;
     } on AppException catch (e) {
       errorMessage.value = e.message;
     } catch (_) {
@@ -74,7 +83,20 @@ class AdminMediaController extends GetxController {
     }
   }
 
+  /// `media_insert/update/delete_site_editor` are the rule; refusing here keeps
+  /// a stale widget from being the only check.
+  bool _blocked(bool Function(AdminRole role) capability, String message) {
+    if (AdminAuthController.allows(capability)) return false;
+    Get.snackbar('Not Allowed', message,
+        backgroundColor: Colors.red, colorText: Colors.white);
+    return true;
+  }
+
   Future<void> upload() async {
+    if (_blocked(
+        RolePermissions.canManageContent, 'Only editors and admins can upload media.')) {
+      return;
+    }
     final PickedFile? picked;
     try {
       picked = await _selector.pickImage();
@@ -98,6 +120,9 @@ class AdminMediaController extends GetxController {
         mimeType: _mimeFor(picked.name),
       );
       items.insert(0, created);
+      // Newest-first ordering means this row pushes every older row one slot
+      // down; without the bump the next page re-fetches the last asset we have.
+      _offset += 1;
       Get.snackbar('Uploaded', 'Media added to the library.',
           backgroundColor: Colors.green, colorText: Colors.white);
     } on AppException catch (e) {
@@ -112,6 +137,10 @@ class AdminMediaController extends GetxController {
   }
 
   Future<void> updateAltText(String id, String altText) async {
+    if (_blocked(RolePermissions.canManageContent,
+        'Only editors and admins can edit media.')) {
+      return;
+    }
     try {
       final updated =
           await mediaRepository.updateMediaMetadata(id, altText: altText);
@@ -134,6 +163,10 @@ class AdminMediaController extends GetxController {
   }
 
   Future<void> deleteMedia(String id) async {
+    if (_blocked(RolePermissions.canManageContent,
+        'Only editors and admins can delete media.')) {
+      return;
+    }
     try {
       final ok = await mediaRepository.deleteMedia(id);
       if (!ok) {
@@ -142,6 +175,9 @@ class AdminMediaController extends GetxController {
         return;
       }
       items.removeWhere((m) => m.id == id);
+      // Removing a row from the fetched window pulls every older row up one
+      // slot, so the next page would otherwise jump past one asset.
+      if (_offset > 0) _offset -= 1;
       Get.snackbar('Deleted', 'Asset removed.',
           backgroundColor: Colors.grey.shade900, colorText: Colors.white);
     } on AppException catch (e) {

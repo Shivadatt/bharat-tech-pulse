@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../../core/supabase/role_permissions.dart';
 import '../../features/admin/analytics/controllers/admin_analytics_controller.dart';
 import '../../features/admin/analytics/views/admin_analytics_view.dart';
 import '../../features/admin/articles/views/admin_article_editor_view.dart';
@@ -257,7 +258,9 @@ class AppPages {
         Get.lazyPut(() => AdminCategoriesController(
             categoryRepository: Get.find<CategoryRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canManageContent)
+      ],
     ),
     GetPage(
       name: AppRoutes.adminTags,
@@ -266,7 +269,9 @@ class AppPages {
         Get.lazyPut(() =>
             AdminTagsController(categoryRepository: Get.find<CategoryRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canManageContent)
+      ],
     ),
     GetPage(
       name: AppRoutes.adminAuthors,
@@ -275,7 +280,10 @@ class AppPages {
         Get.lazyPut(() => AdminAuthorsController(
             categoryRepository: Get.find<CategoryRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      // Byline writes are `is_site_admin` in RLS — the same tier as settings.
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canManageSettings)
+      ],
     ),
     GetPage(
       name: AppRoutes.adminMedia,
@@ -293,7 +301,11 @@ class AppPages {
         Get.lazyPut(() => AdminTrendingController(
             postAdminRepository: Get.find<PostAdminRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      // Curation flags are `posts_update_site_editor`; leaving the route open
+      // would advertise buttons RLS refuses.
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canManageContent)
+      ],
     ),
     GetPage(
       name: AppRoutes.adminScheduled,
@@ -302,7 +314,9 @@ class AppPages {
         Get.lazyPut(() => AdminScheduledController(
             postAdminRepository: Get.find<PostAdminRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canManageContent)
+      ],
     ),
     GetPage(
       name: AppRoutes.adminSeo,
@@ -311,7 +325,10 @@ class AppPages {
         Get.lazyPut(() => AdminSeoController(
             siteSettingsRepository: Get.find<SiteSettingsRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      // SEO globals live on `site_settings`, whose writes are `is_site_admin`.
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canManageSettings)
+      ],
     ),
     GetPage(
       name: AppRoutes.adminAnalytics,
@@ -320,7 +337,11 @@ class AppPages {
         Get.lazyPut(() => AdminAnalyticsController(
             analyticsRepository: Get.find<AnalyticsRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      // Mirrors the repository-side `canViewReports` guard, so an author is not
+      // routed to a panel whose queries RLS will refuse.
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canViewReports)
+      ],
     ),
     GetPage(
       name: AppRoutes.adminSettings,
@@ -329,7 +350,9 @@ class AppPages {
         Get.lazyPut(() => AdminSettingsController(
             siteSettingsRepository: Get.find<SiteSettingsRepository>()));
       }),
-      middlewares: [AdminAuthMiddleware()],
+      middlewares: [
+        AdminRoleMiddleware(canAccess: RolePermissions.canManageSettings)
+      ],
     ),
   ];
 }

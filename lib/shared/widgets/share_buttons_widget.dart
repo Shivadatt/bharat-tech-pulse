@@ -84,13 +84,18 @@ class _ShareIconButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
+        // 8px of padding around a 16px icon only gives a 32px target, under the
+        // 40px mobile minimum; the box is sized instead of padded.
         child: Container(
-          padding: const EdgeInsets.all(8),
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             border: Border.all(color: theme.colorScheme.outline),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 16, color: theme.colorScheme.primary),
+          child: Center(
+            child: Icon(icon, size: 16, color: theme.colorScheme.primary),
+          ),
         ),
       ),
     );

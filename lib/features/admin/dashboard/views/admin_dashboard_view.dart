@@ -94,7 +94,9 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
                 ),
                 _MetricCard(
                   title: 'Total Reads',
-                  value: numFormat.format(controller.totalViews.value),
+                  value: controller.viewsTruncated.value
+                      ? '${numFormat.format(controller.totalViews.value)}+'
+                      : numFormat.format(controller.totalViews.value),
                   icon: Icons.visibility_outlined,
                   color: Colors.blueAccent,
                 ),
@@ -169,16 +171,32 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
               separatorBuilder: (context, index) => const Divider(),
               itemBuilder: (context, index) {
                 final art = controller.recentArticles[index];
+                final thumbUrl = art.featuredImage.trim();
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: Image.network(art.featuredImage,
-                        width: 50,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        cacheWidth: 100,
-                        cacheHeight: 80),
+                    // Drafts without a featured image hand over '', which
+                    // Image.network throws on while resolving — the whole route
+                    // goes down, so the placeholder is built instead.
+                    child: thumbUrl.isEmpty
+                        ? SizedBox(
+                            width: 50,
+                            height: 40,
+                            child: ColoredBox(color: Colors.grey.shade300),
+                          )
+                        : Image.network(thumbUrl,
+                            width: 50,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            cacheWidth: 100,
+                            cacheHeight: 80,
+                            errorBuilder: (context, error, stackTrace) =>
+                                SizedBox(
+                                  width: 50,
+                                  height: 40,
+                                  child: ColoredBox(color: Colors.grey.shade300),
+                                )),
                   ),
                   title: Text(
                     art.title,
@@ -331,14 +349,21 @@ class _MetricCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).textTheme.bodySmall?.color,
+                // Two metric cards at 320px leave ~72px for the label, so the
+                // title has to fold instead of overflowing the Row.
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 6),
                 Icon(icon, size: 18, color: color),
               ],
             ),

@@ -28,8 +28,36 @@ class AdminAuthController extends GetxController {
   final Rx<ProfileModel?> profile = Rx<ProfileModel?>(null);
 
   /// Effective role of the signed-in user; defaults to the least-privileged
-  /// [AdminRole.author] when no profile is loaded.
-  AdminRole get role => profile.value?.role ?? AdminRole.author;
+  /// [AdminRole.author] when no profile is loaded. [ProfileModel.effectiveRole]
+  /// is the site-scoped answer (a global editor with an admin `site_role` is an
+  /// admin here), which `profile.role` alone would understate.
+  AdminRole get role => profile.value?.effectiveRole ?? AdminRole.author;
+
+  bool get canManageContent => RolePermissions.canManageContent(role);
+  bool get canPublish => RolePermissions.canPublish(role);
+  bool get canManageSettings => RolePermissions.canManageSettings(role);
+  bool get canDeleteRecords => RolePermissions.canDeleteRecords(role);
+  bool get canViewReports => RolePermissions.canViewReports(role);
+
+  /// Capability check for panels and controllers that must not assume a
+  /// session exists (widget tests mount admin views with injected
+  /// repositories). Resolving [role] reads the profile Rx, so calling this
+  /// inside an `Obx` builder rebuilds when the role changes.
+  ///
+  /// UX only: Supabase RLS is the enforcement, so returning true when no
+  /// session is registered grants nothing the server would allow.
+  static bool allows(bool Function(AdminRole role) capability) {
+    final controller = maybe();
+    return controller == null || capability(controller.role);
+  }
+
+  /// The registered session, or null when the admin shell was mounted without
+  /// one. `AdminAuthMiddleware` resolves the controller for every `/admin/*`
+  /// route, so the null branch is unreachable through the router.
+  static AdminAuthController? maybe() =>
+      Get.isRegistered<AdminAuthController>()
+          ? Get.find<AdminAuthController>()
+          : null;
 
   final AuthService? _injectedAuth;
   final ProfileRepository? _injectedProfiles;
@@ -44,8 +72,12 @@ class AdminAuthController extends GetxController {
   AuthService? get _auth => _injectedAuth ??
       (_supabaseReady ? Get.find<AuthService>() : null);
 
+  /// The profile store is registered on both branches (Supabase and mock), so
+  /// it is resolved by registration rather than by backend readiness.
   ProfileRepository? get _profiles => _injectedProfiles ??
-      (_supabaseReady ? Get.find<ProfileRepository>() : null);
+      (Get.isRegistered<ProfileRepository>()
+          ? Get.find<ProfileRepository>()
+          : null);
 
   @override
   void onInit() {
@@ -79,7 +111,9 @@ class AdminAuthController extends GetxController {
 
     final auth = _auth;
     if (auth == null) {
-      // Backend not configured — never accept credentials in this state.
+      // There is no server to verify a password against, and pretending
+      // otherwise would train editors to trust a sign-in that proves nothing.
+      // The widget tests drive the CMS by injecting repositories instead.
       errorMessage.value = 'Backend is not configured.';
       return;
     }

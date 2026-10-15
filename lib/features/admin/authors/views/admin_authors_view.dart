@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/author_model.dart';
+import '../../../../shared/responsive/responsive_breakpoints.dart';
+import '../../../../shared/widgets/author_avatar.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../../shared/widgets/admin_state_view.dart';
 import '../controllers/admin_authors_controller.dart';
@@ -12,15 +16,23 @@ class AdminAuthorsView extends GetView<AdminAuthorsController> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Every `authors` write is `is_site_admin` under RLS, so this panel is
+    // already route-gated to that tier; the checks below are the second layer
+    // for a role revoked while the page is open.
+    final canManageBylines =
+        AdminAuthController.allows(RolePermissions.canManageSettings);
+    final canDelete =
+        AdminAuthController.allows(RolePermissions.canDeleteRecords);
 
     return AdminScaffold(
       title: 'Authors & Contributors',
       actions: [
-        ElevatedButton.icon(
-          onPressed: () => _openForm(context),
-          icon: const Icon(Icons.person_add_rounded, size: 18),
-          label: const Text('Add Contributor'),
-        ),
+        if (canManageBylines)
+          ElevatedButton.icon(
+            onPressed: () => _openForm(context),
+            icon: const Icon(Icons.person_add_rounded, size: 18),
+            label: const Text('Add Contributor'),
+          ),
       ],
       body: Obx(() {
         final authors = controller.authors;
@@ -39,10 +51,14 @@ class AdminAuthorsView extends GetView<AdminAuthorsController> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Editorial Staff (${authors.length})',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                      Flexible(
+                        child: Text(
+                          'Editorial Staff (${authors.length})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded),
@@ -59,12 +75,15 @@ class AdminAuthorsView extends GetView<AdminAuthorsController> {
                     itemBuilder: (context, index) {
                       final a = authors[index];
                       return ListTile(
-                        leading: a.avatarUrl.isEmpty
-                            ? CircleAvatar(child: Text(a.name.isEmpty ? '?' : a.name[0]))
-                            : CircleAvatar(
-                                backgroundImage: NetworkImage(a.avatarUrl),
-                                child: const SizedBox.shrink(),
-                              ),
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal:
+                                ResponsiveBreakpoints.isMobileSmall(context)
+                                    ? 8
+                                    : 16),
+                        leading: AuthorAvatar(
+                          name: a.name,
+                          avatarUrl: a.avatarUrl,
+                        ),
                         title: Text(a.name,
                             style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(
@@ -77,15 +96,25 @@ class AdminAuthorsView extends GetView<AdminAuthorsController> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18),
-                              onPressed: () => _openForm(context, existing: a),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded,
-                                  size: 18, color: Colors.red),
-                              onPressed: () => _confirmDelete(a),
-                            ),
+                            if (canManageBylines)
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                    minWidth: 40, minHeight: 40),
+                                icon: const Icon(Icons.edit_outlined, size: 18),
+                                onPressed: () => _openForm(context, existing: a),
+                              ),
+                            if (canDelete)
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                    minWidth: 40, minHeight: 40),
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    size: 18, color: Colors.red),
+                                onPressed: () => _confirmDelete(a),
+                              ),
                           ],
                         ),
                       );
@@ -160,6 +189,14 @@ class AdminAuthorsView extends GetView<AdminAuthorsController> {
         bioController: bioC,
       ),
     );
+    // The dialog is gone, so these six controllers are dead. Disposing them
+    // here keeps repeated open/close cycles from leaking listeners.
+    nameC.dispose();
+    slugC.dispose();
+    roleC.dispose();
+    emailC.dispose();
+    bioC.dispose();
+    avatarC.dispose();
   }
 }
 
@@ -181,7 +218,7 @@ class _FormDialog extends StatelessWidget {
     return AlertDialog(
       title: Text(title),
       content: SizedBox(
-        width: 360,
+        width: ResponsiveBreakpoints.dialogWidth(context, 360),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

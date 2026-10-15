@@ -164,20 +164,36 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildMobileNavbar(
       BuildContext context, ThemeData theme, ThemeController themeController) {
+    // Brand (~170px) plus three default 48px icon buttons (144px) exceeds the
+    // 280px left inside a 320px phone after the 20px side padding, so the
+    // brand shrinks to fit and the buttons take the compact hit area.
+    final compactIcons = IconButton.styleFrom(
+      minimumSize: const Size(40, 40),
+      padding: EdgeInsets.zero,
+    );
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildBrandLogo(context, theme),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: _buildBrandLogo(context, theme),
+          ),
+        ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.search_rounded),
+              style: compactIcons,
+              icon: const Icon(Icons.search_rounded, size: 20),
               onPressed: () => Get.toNamed('/search'),
             ),
             Obx(() {
               final isDark = themeController.isDarkMode;
               return IconButton(
+                style: compactIcons,
                 icon: Icon(
                   isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
                   size: 20,
@@ -186,7 +202,8 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
               );
             }),
             IconButton(
-              icon: const Icon(Icons.menu_rounded),
+              style: compactIcons,
+              icon: const Icon(Icons.menu_rounded, size: 20),
               onPressed: () {
                 Scaffold.of(context).openEndDrawer();
               },

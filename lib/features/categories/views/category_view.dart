@@ -5,6 +5,7 @@ import '../../../shared/components/newsletter_card.dart';
 import '../../../shared/components/section_header.dart';
 import '../../../shared/layouts/content_with_sidebar.dart';
 import '../../../shared/layouts/public_scaffold.dart';
+import '../../../shared/responsive/responsive_breakpoints.dart';
 import '../../../shared/responsive/responsive_container.dart';
 import '../../../shared/responsive/responsive_grid.dart';
 import '../../../shared/skeletons/empty_state.dart';
@@ -68,63 +69,71 @@ class _CategoryViewState extends State<CategoryView> {
               const SizedBox(height: 12),
 
               // Category Header Banner
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).colorScheme.primary.withAlpha(20),
-                      Theme.of(context).cardColor,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              Builder(builder: (context) {
+                // displayMedium is 32px: "Smartphones"/"Comparisons" then need
+                // more than the ~224px a 320px screen leaves after 28px of
+                // horizontal padding, so long words break mid-syllable.
+                final compact = ResponsiveBreakpoints.isMobileSmall(context);
+                return Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 16 : 28, vertical: compact ? 24 : 32),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.primary.withAlpha(20),
+                        Theme.of(context).cardColor,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Theme.of(context).colorScheme.outline),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(height: 10),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 800),
-                      child: Text(
-                        description,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                    if (subcategories.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: subcategories.map((sub) {
-                          final isSelected =
-                              controller.selectedSubcategory.value == sub;
-                          return ChoiceChip(
-                            label: Text(sub),
-                            selected: isSelected,
-                            onSelected: (_) => controller.filterSubcategory(sub),
-                            selectedColor: Theme.of(context).colorScheme.primary,
-                            labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : null,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              fontSize: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontSize: compact ? 26 : null,
                             ),
-                          );
-                        }).toList(),
                       ),
+                      const SizedBox(height: 10),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: Text(
+                          description,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                      if (subcategories.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: subcategories.map((sub) {
+                            final isSelected =
+                                controller.selectedSubcategory.value == sub;
+                            return ChoiceChip(
+                              label: Text(sub),
+                              selected: isSelected,
+                              onSelected: (_) => controller.filterSubcategory(sub),
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : null,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }),
 
               const SizedBox(height: 40),
 

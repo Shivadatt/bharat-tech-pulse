@@ -26,6 +26,11 @@ class AdminDashboardController extends GetxController {
   final RxInt scheduledArticles = 0.obs;
   final RxInt totalViews = 0.obs;
 
+  /// `posts.view_count` has no PostgREST aggregate, so the backend sums a
+  /// capped column read. When that read hits its cap the total is a floor, and
+  /// the card has to say so instead of presenting it as exact.
+  final RxBool viewsTruncated = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -48,6 +53,7 @@ class AdminDashboardController extends GetxController {
       draftArticles.value = stats.draft;
       scheduledArticles.value = stats.scheduled;
       totalViews.value = stats.totalReads;
+      viewsTruncated.value = stats.truncatedReads;
     } on Object catch (e) {
       errorMessage.value = 'Could not load dashboard metrics ($e).';
     } finally {

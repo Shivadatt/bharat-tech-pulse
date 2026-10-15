@@ -289,5 +289,48 @@ void main() {
       expect(RolePermissions.parse(null), AdminRole.author);
       expect(RolePermissions.parse('site_owner'), AdminRole.author);
     });
+
+    test('rank orders superAdmin > admin > editor > author', () {
+      expect(RolePermissions.rank(AdminRole.superAdmin),
+          greaterThan(RolePermissions.rank(AdminRole.admin)));
+      expect(RolePermissions.rank(AdminRole.admin),
+          greaterThan(RolePermissions.rank(AdminRole.editor)));
+      expect(RolePermissions.rank(AdminRole.editor),
+          greaterThan(RolePermissions.rank(AdminRole.author)));
+    });
+
+    test('isAtLeast is inclusive, downward-closing and super_admin always wins',
+        () {
+      expect(RolePermissions.isAtLeast(AdminRole.editor, AdminRole.editor), true);
+      expect(RolePermissions.isAtLeast(AdminRole.admin, AdminRole.editor), true);
+      expect(RolePermissions.isAtLeast(AdminRole.author, AdminRole.editor), false);
+      expect(
+          RolePermissions.isAtLeast(AdminRole.superAdmin, AdminRole.superAdmin),
+          true);
+      for (final minimum in AdminRole.values) {
+        expect(RolePermissions.isAtLeast(AdminRole.superAdmin, minimum), true,
+            reason: 'super_admin must satisfy every capability');
+        expect(RolePermissions.isAtLeast(AdminRole.author, minimum),
+            minimum == AdminRole.author,
+            reason: 'author ranks lowest, so only the author threshold passes');
+      }
+    });
+
+    test('every capability helper agrees with its documented tier floor', () {
+      for (final role in AdminRole.values) {
+        expect(RolePermissions.canManageContent(role),
+            RolePermissions.isAtLeast(role, AdminRole.editor),
+            reason: 'content edits mirror is_site_editor');
+        expect(RolePermissions.canPublish(role),
+            RolePermissions.isAtLeast(role, AdminRole.editor));
+        expect(RolePermissions.canManageSettings(role),
+            RolePermissions.isAtLeast(role, AdminRole.admin),
+            reason: 'settings and bylines mirror is_site_admin');
+        expect(RolePermissions.canDeleteRecords(role),
+            RolePermissions.isAtLeast(role, AdminRole.admin));
+        expect(RolePermissions.canViewReports(role),
+            RolePermissions.canManageContent(role));
+      }
+    });
   });
 }

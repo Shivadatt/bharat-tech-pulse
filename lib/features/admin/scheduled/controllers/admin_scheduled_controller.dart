@@ -28,11 +28,10 @@ class AdminScheduledController extends GetxController {
     isLoading.value = true;
     errorMessage.value = null;
     try {
-      final rows = <ArticleModel>[];
-      rows.addAll(await postAdminRepository.listScheduled(
-          upcomingOnly: true, limit: pageSize));
-      rows.addAll(await postAdminRepository.listScheduled(
-          upcomingOnly: false, limit: pageSize));
+      final rows = <ArticleModel>[
+        ...await _listEveryScheduled(upcomingOnly: true),
+        ...await _listEveryScheduled(upcomingOnly: false),
+      ];
       final seen = <String>{};
       scheduled.assignAll(rows.where((a) => seen.add(a.id)).toList());
     } on AppException catch (e) {
@@ -42,6 +41,24 @@ class AdminScheduledController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// One `listScheduled` call only returns [pageSize] rows, which silently
+  /// hides the back of the queue and makes the "Queued Stories" count lie, so
+  /// walk the pages until one comes back short.
+  Future<List<ArticleModel>> _listEveryScheduled({
+    required bool upcomingOnly,
+  }) async {
+    final all = <ArticleModel>[];
+    var offset = 0;
+    while (true) {
+      final page = await postAdminRepository.listScheduled(
+          upcomingOnly: upcomingOnly, limit: pageSize, offset: offset);
+      all.addAll(page);
+      if (page.length < pageSize) break;
+      offset += page.length;
+    }
+    return all;
   }
 
   Future<void> publishNow(ArticleModel post) async {

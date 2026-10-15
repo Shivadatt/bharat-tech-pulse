@@ -7,6 +7,28 @@ enum AdminRole { superAdmin, admin, editor, author }
 class RolePermissions {
   RolePermissions._();
 
+  /// Ordering of the tiers: superAdmin > admin > editor > author.
+  ///
+  /// Written out instead of relying on [AdminRole.index] so reordering the enum
+  /// cannot silently invert the matrix.
+  static int rank(AdminRole role) {
+    switch (role) {
+      case AdminRole.superAdmin:
+        return 3;
+      case AdminRole.admin:
+        return 2;
+      case AdminRole.editor:
+        return 1;
+      case AdminRole.author:
+        return 0;
+    }
+  }
+
+  /// True when [role] holds at least the powers of [minimum]. The super_admin
+  /// tier ranks highest, so it always wins.
+  static bool isAtLeast(AdminRole role, AdminRole minimum) =>
+      rank(role) >= rank(minimum);
+
   /// Parses a database role string. Unknown/missing roles safely fall back
   /// to the least-privileged [AdminRole.author].
   static AdminRole parse(String? role) {
@@ -28,26 +50,26 @@ class RolePermissions {
   /// to anonymous site visitors or newsletter subscribers).
   static bool isStaff(AdminRole role) => true;
 
-  /// Editors and above can create/edit content.
+  /// Editors and above can create/edit content. Mirrors `is_site_editor(...)`
+  /// on `categories` (and the media library).
   static bool canManageContent(AdminRole role) =>
-      role == AdminRole.superAdmin ||
-      role == AdminRole.admin ||
-      role == AdminRole.editor;
+      isAtLeast(role, AdminRole.editor);
 
-  /// Only admins and above can touch site settings, users and SEO globals.
+  /// Only admins and above can touch site settings, bylines ("authors" rows),
+  /// users and SEO globals. Mirrors `is_site_admin(...)` on `site_settings` and
+  /// `authors`.
   static bool canManageSettings(AdminRole role) =>
-      role == AdminRole.superAdmin || role == AdminRole.admin;
+      isAtLeast(role, AdminRole.admin);
 
   /// Editors and above may publish (authors can only submit drafts).
-  static bool canPublish(AdminRole role) =>
-      role == AdminRole.superAdmin ||
-      role == AdminRole.admin ||
-      role == AdminRole.editor;
+  static bool canPublish(AdminRole role) => isAtLeast(role, AdminRole.editor);
 
   /// Mirror of the `is_site_admin(...)` RLS predicates: hard deletes of
   /// content, taxonomy, authors, redirects, site settings and subscribers.
+  /// Media is deliberately NOT here — `media_delete_site_editor` lets editors
+  /// remove assets, so the media button gates on [canManageContent].
   static bool canDeleteRecords(AdminRole role) =>
-      role == AdminRole.superAdmin || role == AdminRole.admin;
+      isAtLeast(role, AdminRole.admin);
 
   /// Mirror of `is_site_editor(...)`: reading subscriber emails and analytics.
   static bool canViewReports(AdminRole role) => canManageContent(role);

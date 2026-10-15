@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/errors/app_exceptions.dart';
+import '../../../../core/supabase/role_permissions.dart';
 import '../../../../data/models/site_settings_model.dart';
 import '../../../../data/repositories/site_settings_repository.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 
 /// Site-wide settings editor. Loads the single `site_settings` row through
 /// [SiteSettingsRepository]; saving is only confirmed after the backend
@@ -106,6 +108,14 @@ class AdminSettingsController extends GetxController {
   }
 
   Future<void> save() async {
+    // The view hides the button; this is the second layer — `site_settings`
+    // writes are `is_site_admin` under RLS, and a stale widget must not be the
+    // only thing standing between an editor and the site's public identity.
+    if (!AdminAuthController.allows(RolePermissions.canManageSettings)) {
+      Get.snackbar('Not authorized', 'Only site admins can change site settings.',
+          backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
     if (siteNameController.text.trim().isEmpty) {
       Get.snackbar('Validation Error', 'Site name is required.',
           backgroundColor: Colors.red, colorText: Colors.white);

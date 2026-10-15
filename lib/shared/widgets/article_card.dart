@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../data/models/article_model.dart';
 import 'article_meta_widget.dart';
+import 'article_thumbnail.dart';
 import 'category_chip.dart';
 
 class ArticleCard extends StatefulWidget {
@@ -56,23 +57,25 @@ class _ArticleCardState extends State<ArticleCard> {
                 children: [
                   AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: Image.network(
-                      article.featuredImage,
-                      fit: BoxFit.cover,
+                    child: ArticleThumbnail(
+                      url: article.featuredImage,
                       cacheWidth: 800,
                       cacheHeight: 450,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: theme.colorScheme.surface,
-                        child: const Icon(Icons.broken_image_rounded, size: 40),
-                      ),
                     ),
                   ),
+                  // Both horizontal edges are pinned so the chip is measured
+                  // against the image width; a left-only Positioned child gets
+                  // unbounded width and its label runs off the clipped image.
                   Positioned(
                     top: 12,
                     left: 12,
-                    child: CategoryChip(
-                      label: article.categoryName,
-                      slug: article.categorySlug,
+                    right: 12,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: CategoryChip(
+                        label: article.categoryName,
+                        slug: article.categorySlug,
+                      ),
                     ),
                   ),
                 ],

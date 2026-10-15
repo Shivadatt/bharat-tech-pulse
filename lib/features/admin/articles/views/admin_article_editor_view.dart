@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/supabase/role_permissions.dart';
+import '../../auth/controllers/admin_auth_controller.dart';
 import '../../layouts/admin_scaffold.dart';
 import '../controllers/admin_article_controller.dart';
 import '../../../../shared/responsive/responsive_breakpoints.dart';
@@ -29,6 +31,10 @@ class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
     return Obx(() {
       final hasError = controller.editorError.value.isNotEmpty;
       final isDesktop = ResponsiveBreakpoints.isDesktop(context);
+      // Authors file drafts; taking a post live is an editorial decision, and
+      // posts INSERT only accepts their status='draft' rows under RLS. The
+      // controller refuses again so a stale widget cannot be the only check.
+      final canPublish = AdminAuthController.allows(RolePermissions.canPublish);
 
       return AdminScaffold(
         title: hasError
@@ -44,17 +50,19 @@ class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
                       onPressed: () => controller.saveArticle(newStatus: 'draft'),
                       child: const Text('Save Draft'),
                     ),
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: () => controller.saveArticle(newStatus: 'scheduled'),
-                      child: const Text('Schedule'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () => controller.saveArticle(newStatus: 'published'),
-                      icon: const Icon(Icons.publish_rounded, size: 16),
-                      label: const Text('Publish Now'),
-                    ),
+                    if (canPublish) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () => controller.saveArticle(newStatus: 'scheduled'),
+                        child: const Text('Schedule'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () => controller.saveArticle(newStatus: 'published'),
+                        icon: const Icon(Icons.publish_rounded, size: 16),
+                        label: const Text('Publish Now'),
+                      ),
+                    ],
                   ]
                 // On phone-width admin the three buttons overflow the AppBar.
                 : [
@@ -62,10 +70,14 @@ class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
                       tooltip: 'Publishing options',
                       icon: const Icon(Icons.more_vert_rounded),
                       onSelected: (action) => controller.saveArticle(newStatus: action),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'draft', child: Text('Save Draft')),
-                        PopupMenuItem(value: 'scheduled', child: Text('Schedule')),
-                        PopupMenuItem(value: 'published', child: Text('Publish Now')),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'draft', child: Text('Save Draft')),
+                        if (canPublish) ...[
+                          const PopupMenuItem(
+                              value: 'scheduled', child: Text('Schedule')),
+                          const PopupMenuItem(
+                              value: 'published', child: Text('Publish Now')),
+                        ],
                       ],
                     ),
                   ],

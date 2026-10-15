@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/article_model.dart';
 import 'article_meta_widget.dart';
+import 'article_thumbnail.dart';
 
 class PopularArticleCard extends StatelessWidget {
   final ArticleModel article;
@@ -33,13 +34,11 @@ class PopularArticleCard extends StatelessWidget {
               child: SizedBox(
                 width: 80,
                 height: 80,
-                child: Image.network(
-                  article.featuredImage,
-                  fit: BoxFit.cover,
+                child: ArticleThumbnail(
+                  url: article.featuredImage,
                   cacheWidth: 160,
                   cacheHeight: 160,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Container(color: theme.colorScheme.surface),
+                  fallbackIcon: null,
                 ),
               ),
             ),

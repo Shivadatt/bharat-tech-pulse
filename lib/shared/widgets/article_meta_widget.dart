@@ -23,6 +23,9 @@ class ArticleMetaWidget extends StatelessWidget {
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
+      // Meta rows wrap onto a second line inside narrow cards; without
+      // runSpacing the two 12px lines sit flush against each other.
+      runSpacing: 4,
       children: [
         if (!compact) ...[
           Text(

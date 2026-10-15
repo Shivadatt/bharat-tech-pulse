@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../data/models/author_model.dart';
+import 'author_avatar.dart';
 
 class AuthorInfoWidget extends StatelessWidget {
   final AuthorModel author;
@@ -29,10 +30,10 @@ class AuthorInfoWidget extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
+            AuthorAvatar(
+              name: author.name,
+              avatarUrl: author.avatarUrl,
               radius: 28,
-              backgroundImage: NetworkImage(author.avatarUrl),
-              backgroundColor: theme.colorScheme.primary.withAlpha(50),
             ),
             const SizedBox(width: 16),
             Expanded(
