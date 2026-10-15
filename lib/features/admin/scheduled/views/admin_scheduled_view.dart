@@ -33,12 +33,19 @@ class AdminScheduledView extends GetView<AdminScheduledController> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Queued Stories (${items.length})',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                      // The admin body is ~208-263px wide below 1024px, so the
+                      // title must ellipsize beside the refresh button.
+                      Flexible(
+                        child: Text(
+                          'Queued Stories (${items.length})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       IconButton(
+                        tooltip: 'Reload scheduled queue',
                         icon: const Icon(Icons.refresh_rounded),
                         onPressed: controller.load,
                       ),

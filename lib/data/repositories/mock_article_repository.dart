@@ -1,5 +1,6 @@
 import '../../core/errors/app_exceptions.dart';
 import '../models/article_model.dart';
+import '../models/redirect_model.dart';
 import '../services/mock_data_source.dart';
 import 'article_repository.dart';
 
@@ -7,6 +8,20 @@ import 'article_repository.dart';
 /// Ready to be swapped with SupabaseArticleRepository in the next phase.
 class MockArticleRepository implements ArticleRepository {
   final List<ArticleModel> _storage = List.from(MockDataSource.articles);
+
+  /// The `redirects` rows a slug rename writes (see [updateArticle]) and the
+  /// hop [getArticleBySlug] follows — same demo mapping the redirects mock
+  /// table seeds, so both mocks describe one store.
+  final List<RedirectModel> _redirects = [
+    RedirectModel(
+      id: 'redir-1',
+      oldPath: '/article/old-slug',
+      newPath: '/article/new-slug',
+      createdAt: DateTime(2026, 9, 1),
+    ),
+  ];
+
+  String _articlePath(String slug) => '/article/$slug';
 
   /// Public read methods must never expose drafts or scheduled posts whose
   /// publish time has not arrived. Mirrors the WHERE clause the future
@@ -41,7 +56,11 @@ class MockArticleRepository implements ArticleRepository {
   @override
   Future<List<ArticleModel>> getPopularArticles({int limit = 6}) async {
     await Future.delayed(const Duration(milliseconds: 40));
-    final sorted = List<ArticleModel>.from(_storage.where(_isPubliclyVisible))
+    // Supabase filters `is_popular = true` first, then ranks the survivors by
+    // view_count desc — curating "popular" is an editorial flag, not an
+    // automatic top-N over every post.
+    final sorted = List<ArticleModel>.from(_storage.where(
+        (a) => a.isPopular && _isPubliclyVisible(a)))
       ..sort((a, b) => b.viewCount.compareTo(a.viewCount));
     return sorted.take(limit).toList();
   }
@@ -49,20 +68,33 @@ class MockArticleRepository implements ArticleRepository {
   @override
   Future<ArticleModel?> getFeaturedArticle() async {
     await Future.delayed(const Duration(milliseconds: 30));
-    try {
-      return _storage
-          .firstWhere((a) => a.isFeatured && _isPubliclyVisible(a));
-    } catch (_) {
-      return null;
-    }
+    // Supabase takes the newest published_at among is_featured rows, not the
+    // first stored match.
+    final featured = _storage
+        .where((a) => a.isFeatured && _isPubliclyVisible(a))
+        .toList()
+      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return featured.isEmpty ? null : featured.first;
   }
 
   @override
   Future<ArticleModel?> getArticleBySlug(String slug) async {
     await Future.delayed(const Duration(milliseconds: 60));
+    // Single redirect hop, mirroring Supabase: /article/<oldSlug> resolves
+    // through the redirects table to /article/<newSlug> so a renamed slug
+    // never 404s.
+    var effectiveSlug = slug;
+    final hop = _redirects.where((r) => r.oldPath == _articlePath(slug));
+    if (hop.isNotEmpty) {
+      final newPath = hop.first.newPath;
+      final prefix = _articlePath('');
+      if (newPath.startsWith(prefix)) {
+        effectiveSlug = newPath.substring(prefix.length);
+      }
+    }
     try {
       return _storage.firstWhere(
-        (a) => a.slug == slug && _isPubliclyVisible(a),
+        (a) => a.slug == effectiveSlug && _isPubliclyVisible(a),
       );
     } catch (_) {
       return null;
@@ -72,61 +104,84 @@ class MockArticleRepository implements ArticleRepository {
   @override
   Future<List<ArticleModel>> getArticlesByCategory(String categorySlug, {int limit = 12}) async {
     await Future.delayed(const Duration(milliseconds: 60));
-    return _storage
+    final rows = _storage
         .where((a) => a.categorySlug == categorySlug && _isPubliclyVisible(a))
-        .take(limit)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return rows.take(limit).toList();
   }
 
   @override
   Future<List<ArticleModel>> getRelatedArticles(
       String currentSlug, String categorySlug, {int limit = 3}) async {
     await Future.delayed(const Duration(milliseconds: 40));
-    return _storage
+    final rows = _storage
         .where((a) =>
             a.slug != currentSlug &&
             a.categorySlug == categorySlug &&
             _isPubliclyVisible(a))
-        .take(limit)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return rows.take(limit).toList();
   }
 
   @override
   Future<List<ArticleModel>> getArticlesByAuthor(String authorSlug, {int limit = 10}) async {
     await Future.delayed(const Duration(milliseconds: 50));
-    return _storage
+    final rows = _storage
         .where((a) => a.author.slug == authorSlug && _isPubliclyVisible(a))
-        .take(limit)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return rows.take(limit).toList();
   }
 
   @override
   Future<List<ArticleModel>> getArticlesByTag(String tagSlug, {int limit = 10}) async {
     await Future.delayed(const Duration(milliseconds: 50));
-    return _storage
+    final rows = _storage
         .where((a) => a.tags.contains(tagSlug) && _isPubliclyVisible(a))
-        .take(limit)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return rows.take(limit).toList();
   }
 
   @override
   Future<List<ArticleModel>> searchArticles(String query) async {
     await Future.delayed(const Duration(milliseconds: 70));
-    final q = query.toLowerCase().trim();
-    if (q.isEmpty) return [];
-    return _storage.where((a) {
+    // Mirrors the Supabase ilike search: only title/excerpt/content are
+    // searched, PostgREST filter metacharacters (`% _ , ( )`) are stripped,
+    // and every surviving term must match at least one of those fields
+    // (per-term OR across fields, AND across terms), newest first.
+    final terms = query
+        .trim()
+        .replaceAll(RegExp(r'[,%_()]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (terms.isEmpty) return [];
+    final results = _storage.where((a) {
       if (!_isPubliclyVisible(a)) return false;
-      return a.title.toLowerCase().contains(q) ||
-          a.excerpt.toLowerCase().contains(q) ||
-          a.content.toLowerCase().contains(q) ||
-          a.categoryName.toLowerCase().contains(q) ||
-          a.tags.any((t) => t.toLowerCase().contains(q));
-    }).toList();
+      final fields = [
+        a.title.toLowerCase(),
+        a.excerpt.toLowerCase(),
+        a.content.toLowerCase(),
+      ];
+      return terms.every((term) {
+        final q = term.toLowerCase();
+        return fields.any((f) => f.contains(q));
+      });
+    }).toList()
+      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    return results;
   }
 
   @override
   Future<List<ArticleModel>> getAllArticlesForAdmin() async {
     await Future.delayed(const Duration(milliseconds: 50));
+    // Supabase orders this admin read `created_at desc`. ArticleModel carries
+    // no created_at, so the mock's storage order is the equivalent: creates
+    // prepend (newest first), updates and patches replace in place, so the
+    // list is exactly reverse creation order.
     return List.from(_storage);
   }
 
@@ -144,6 +199,23 @@ class MockArticleRepository implements ArticleRepository {
     final index = _storage.indexWhere((a) => a.id == article.id);
     if (index == -1) return false;
     _ensureSlugIsUnique(article);
+    // Slug change: register the redirect first, exactly like the Supabase
+    // update, so /article/<oldSlug> keeps resolving via getArticleBySlug.
+    // A pre-existing mapping for the old slug is kept, never overwritten
+    // (the backend's UNIQUE (site_id, old_path) 23505 branch).
+    final oldSlug = _storage[index].slug;
+    if (oldSlug.isNotEmpty && oldSlug != article.slug) {
+      final oldPath = _articlePath(oldSlug);
+      if (!_redirects.any((r) => r.oldPath == oldPath)) {
+        _redirects.insert(0, RedirectModel(
+          id: 'redir-${DateTime.now().microsecondsSinceEpoch}',
+          oldPath: oldPath,
+          newPath: _articlePath(article.slug),
+          statusCode: 301,
+          createdAt: DateTime.now(),
+        ));
+      }
+    }
     _storage[index] = article;
     return true;
   }

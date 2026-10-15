@@ -6,6 +6,14 @@ import 'site_settings_repository.dart';
 class MockSiteSettingsRepository implements SiteSettingsRepository {
   SiteSettingsModel? _settings;
 
+  /// When true the store behaves like a site whose `site_settings` row has
+  /// never been inserted: [getSettings] returns null (the way Supabase's
+  /// maybeSingle does) until [saveSettings] creates the row. The default
+  /// keeps the demo site fully populated.
+  final bool rowMissing;
+
+  MockSiteSettingsRepository({this.rowMissing = false});
+
   SiteSettingsModel get _seed => SiteSettingsModel(
         id: 'mock-site-settings',
         siteName: SiteConfig.siteName,
@@ -30,7 +38,7 @@ class MockSiteSettingsRepository implements SiteSettingsRepository {
   @override
   Future<SiteSettingsModel?> getSettings() async {
     await Future.delayed(const Duration(milliseconds: 30));
-    return _settings ?? _seed;
+    return rowMissing ? _settings : _settings ?? _seed;
   }
 
   @override

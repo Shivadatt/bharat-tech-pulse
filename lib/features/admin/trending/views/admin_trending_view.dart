@@ -31,12 +31,19 @@ class AdminTrendingView extends GetView<AdminTrendingController> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Trending slots: ${controller.trending.length}',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                      // The admin body is ~208-263px wide below 1024px, so the
+                      // title must ellipsize beside the refresh button.
+                      Flexible(
+                        child: Text(
+                          'Trending slots: ${controller.trending.length}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       IconButton(
+                        tooltip: 'Reload trending posts',
                         icon: const Icon(Icons.refresh_rounded),
                         onPressed: controller.load,
                       ),

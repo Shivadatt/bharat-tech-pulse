@@ -153,9 +153,16 @@ class AdminDashboardView extends GetView<AdminDashboardController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Recent Editorial Stories',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                // Below 1024px the admin body has no sidebar, so this header
+                // can drop to ~208px wide; the title must ellipsize instead of
+                // overflowing beside "View All".
+                Flexible(
+                  child: Text(
+                    'Recent Editorial Stories',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 TextButton(
                   onPressed: () => Get.toNamed('/admin/articles'),
@@ -368,12 +375,19 @@ class _MetricCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: color,
+            // A 2-column grid at 320px gives each card ~72-90px, where a value
+            // like "123,456" at fontSize 26 soft-wraps mid-number; scale it
+            // down instead.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topLeft,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
               ),
             ),
           ],

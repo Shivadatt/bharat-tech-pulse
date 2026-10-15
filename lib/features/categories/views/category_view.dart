@@ -122,7 +122,11 @@ class _CategoryViewState extends State<CategoryView> {
                               onSelected: (_) => controller.filterSubcategory(sub),
                               selectedColor: Theme.of(context).colorScheme.primary,
                               labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : null,
+                                // Colors.white on the cyan primary is 2.4:1 in
+                                // dark mode, which is the app's default theme.
+                                color: isSelected
+                                    ? Theme.of(context).colorScheme.onPrimary
+                                    : null,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                 fontSize: 12,
                               ),

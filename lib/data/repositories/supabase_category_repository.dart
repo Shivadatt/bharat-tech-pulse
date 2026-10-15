@@ -19,7 +19,9 @@ class SupabaseCategoryRepository implements CategoryRepository {
   SupabaseClient get _client => SupabaseService.client;
 
   /// Maps an `authors` row; `social_links` jsonb flattens into the legacy
-  /// twitter/linkedin/email fields.
+  /// twitter/linkedin/email fields. `is_active` and `user_id` are carried
+  /// through so an admin edit of an archived byline cannot silently
+  /// re-activate it (the edit dialog re-submits the loaded model).
   static AuthorModel rowToAuthor(Map<String, dynamic> row) {
     final social = row['social_links'];
     return AuthorModel(
@@ -32,6 +34,8 @@ class SupabaseCategoryRepository implements CategoryRepository {
       twitter: social is Map ? (social['twitter'] as String? ?? '') : '',
       linkedin: social is Map ? (social['linkedin'] as String? ?? '') : '',
       email: social is Map ? (social['email'] as String? ?? '') : '',
+      isActive: row['is_active'] as bool? ?? true,
+      linkedUserId: row['user_id'] as String?,
     );
   }
 
@@ -188,17 +192,14 @@ class SupabaseCategoryRepository implements CategoryRepository {
   Future<CategoryModel> createCategory(CategoryModel category) =>
       guardPostgrest(() async {
         final siteId = await _site.siteId;
+        // Every column the model carries, so `image_url`, `sort_order`,
+        // `seo_*` and a deliberately-archived `is_active` are not silently
+        // dropped on the way to the database.
+        final payload = category.toJson()..remove('id');
+        payload['site_id'] = siteId;
         final row = await _client
             .from('categories')
-            .insert({
-              'site_id': siteId,
-              'name': category.name,
-              'slug': category.slug,
-              'description': category.description,
-              'icon_code': category.iconCode,
-              'subcategories': category.subcategories,
-              'is_active': true,
-            })
+            .insert(payload)
             .select()
             .single();
         return CategoryModel.fromJson(row);
@@ -208,15 +209,10 @@ class SupabaseCategoryRepository implements CategoryRepository {
   Future<bool> updateCategory(CategoryModel category) =>
       guardPostgrest(() async {
         final siteId = await _site.siteId;
+        final payload = category.toJson()..remove('id');
         final rows = await _client
             .from('categories')
-            .update({
-              'name': category.name,
-              'slug': category.slug,
-              'description': category.description,
-              'icon_code': category.iconCode,
-              'subcategories': category.subcategories,
-            })
+            .update(payload)
             .eq('site_id', siteId)
             .eq('id', category.id)
             .select('id');

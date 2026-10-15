@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../app/config/site_config.dart';
+import '../../../core/errors/app_exceptions.dart';
 import '../../../core/seo/seo_service.dart';
 import '../../../data/models/article_model.dart';
 import '../../../data/repositories/article_repository.dart';
@@ -44,10 +45,28 @@ class SearchPageController extends GetxController {
     super.onClose();
   }
 
+  int _requestId = 0;
+
+  void clearSearch() {
+    _requestId++;
+    searchController.clear();
+    currentQuery.value = '';
+    hasSearched.value = false;
+    errorMessage.value = '';
+    searchResults.clear();
+    isLoading.value = false;
+  }
+
   Future<void> performSearch(String query) async {
     final cleanQuery = query.trim();
-    if (cleanQuery.isEmpty) return;
+    if (cleanQuery.isEmpty) {
+      // Returning early left the previous result set and the
+      // `Found N stories for "…"` header on screen after the field was emptied.
+      clearSearch();
+      return;
+    }
 
+    final request = ++_requestId;
     currentQuery.value = cleanQuery;
     hasSearched.value = true;
     isLoading.value = true;
@@ -55,11 +74,14 @@ class SearchPageController extends GetxController {
 
     try {
       final results = await articleRepository.searchArticles(cleanQuery);
+      if (request != _requestId) return;
       searchResults.assignAll(results);
     } catch (e) {
-      errorMessage.value = 'Failed to execute search: $e';
+      if (request != _requestId) return;
+      errorMessage.value =
+          e is AppException ? e.message : 'We could not run this search.';
     } finally {
-      isLoading.value = false;
+      if (request == _requestId) isLoading.value = false;
     }
   }
 }

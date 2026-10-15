@@ -34,6 +34,10 @@ class AppTheme {
         ),
         margin: EdgeInsets.zero,
       ),
+      // Widgets decorated by hand read `theme.cardColor`; left unset it falls
+      // back to `colorScheme.surface`, so those panels were a shade off from
+      // real `Card`s in both modes.
+      cardColor: AppColors.lightCard,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.lightSurface,
         foregroundColor: AppColors.lightText,
@@ -95,7 +99,11 @@ class AppTheme {
     final textTheme = AppTextTheme.createTextTheme(
       primaryText: AppColors.darkText,
       secondaryText: AppColors.darkSecondary,
-      mutedText: AppColors.darkMuted,
+      // `darkMuted` (#64748B) measures 3.5:1 on the dark card surface, under
+      // the 4.5:1 bar for the 12px `bodySmall` timestamps on every card.
+      // `darkSecondary` is the same slate hue at 6.9:1, so only the weight of
+      // grey shifts - no new colour enters the palette.
+      mutedText: AppColors.darkSecondary,
     );
 
     return ThemeData(
@@ -121,6 +129,7 @@ class AppTheme {
         ),
         margin: EdgeInsets.zero,
       ),
+      cardColor: AppColors.darkCard,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.darkSurface,
         foregroundColor: AppColors.darkText,

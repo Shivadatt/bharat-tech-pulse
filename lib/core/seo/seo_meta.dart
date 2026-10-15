@@ -1,5 +1,6 @@
 import '../../app/config/site_config.dart';
 import '../../data/models/article_model.dart';
+import '../../data/models/author_model.dart';
 import '../../data/models/category_model.dart';
 import 'seo_schema.dart';
 
@@ -33,6 +34,23 @@ class SeoMeta {
   /// `og:type` value: `website`, `article`, …
   final String ogType;
 
+  /// CMS-supplied `og_title` / `og_description` overrides (articles only today).
+  /// The getters fall back to [title] / [description] when they are absent, so
+  /// an editor's OG override actually reaches both renderers instead of being
+  /// stored and silently ignored.
+  final String? ogTitleOverride;
+  final String? ogDescriptionOverride;
+
+  String get ogTitle =>
+      (ogTitleOverride != null && ogTitleOverride!.isNotEmpty)
+          ? ogTitleOverride!
+          : title;
+
+  String get ogDescription =>
+      (ogDescriptionOverride != null && ogDescriptionOverride!.isNotEmpty)
+          ? ogDescriptionOverride!
+          : description;
+
   /// The `robots` meta value. Defaults to `index, follow`; the not-found route
   /// passes `noindex, follow` so a soft-404 URL is not added to the index.
   /// SeoDom writes this on *every* apply so client-side navigation can never
@@ -58,6 +76,8 @@ class SeoMeta {
     required this.jsonLd,
     required this.properties,
     required this.names,
+    this.ogTitleOverride,
+    this.ogDescriptionOverride,
   });
 
   /// Generic route: a hand-supplied title/description/canonical.
@@ -86,9 +106,15 @@ class SeoMeta {
           : description,
       canonicalUrl: canonicalUrl != null && canonicalUrl.isNotEmpty
           ? canonicalUrl
-          : (canonicalPath == null || canonicalPath.isEmpty
-              ? '${SiteConfig.domain}/'
-              : '${SiteConfig.domain}$canonicalPath'),
+          : canonicalPath != null && canonicalPath.isNotEmpty
+              ? '${SiteConfig.domain}$canonicalPath'
+              // A noindex route with no declared path gets an EMPTY canonical
+              // (both renderers omit the tag when empty) instead of inheriting
+              // the site root, so soft-404s and /admin can never declare the
+              // homepage as their canonical.
+              : robots.contains('noindex')
+                  ? ''
+                  : '${SiteConfig.domain}/',
       ogImage: resolveImage(ogImage),
       ogType: ogType,
       robots: robots,
@@ -111,6 +137,8 @@ class SeoMeta {
       ogImage: resolveImage(art.ogImage.isNotEmpty ? art.ogImage : art.featuredImage),
       ogType: 'article',
       robots: 'index, follow',
+      ogTitleOverride: art.ogTitle,
+      ogDescriptionOverride: art.ogDescription,
       jsonLd: SeoSchema.articleGraph(
         title: art.title,
         description: description,
@@ -120,6 +148,10 @@ class SeoMeta {
         authorUrl: art.author.slug.isNotEmpty
             ? '${SiteConfig.domain}/author/${art.author.slug}'
             : null,
+        authorSameAs: SeoSchema.socialSameAs(
+          twitter: art.author.twitter,
+          linkedin: art.author.linkedin,
+        ),
         publishedAt: art.publishedAt,
         modifiedAt: art.updatedAt,
         categoryName: art.categoryName,
@@ -128,7 +160,7 @@ class SeoMeta {
         faqs: art.faqs
             .map((f) => <String, String>{'question': f.question, 'answer': f.answer})
             .toList(),
-        readingMinutes: art.readingTimeMinutes,
+        body: art.content,
       ),
       properties: <String, String>{
         'article:published_time': art.publishedAt.toUtc().toIso8601String(),
@@ -163,6 +195,83 @@ class SeoMeta {
     );
   }
 
+  /// Author profile route (`/author/:slug`): Person + ProfilePage graph.
+  /// The title/description/canonical mirror what `AuthorController` writes at
+  /// runtime, so the prerendered shells and the live page agree.
+  factory SeoMeta.forAuthor(AuthorModel author) {
+    return SeoMeta.page(
+      title: '${author.name} — Author Profile',
+      description: author.bio,
+      canonicalPath: '/author/${author.slug}',
+      ogImage: author.avatarUrl,
+      ogType: 'profile',
+      jsonLd: SeoSchema.authorGraph(
+        name: author.name,
+        slug: author.slug,
+        bio: author.bio,
+        imageUrl: resolveImage(author.avatarUrl),
+        sameAs: SeoSchema.socialSameAs(
+          twitter: author.twitter,
+          linkedin: author.linkedin,
+        ),
+      ),
+      names: <String, String>{'author': author.name},
+    );
+  }
+
+  // Hand-authored static pages. `app_pages.dart` feeds these exact constants
+  // into its `PageSeoInit` widgets and `tool/generate_prerender.dart` bakes
+  // shells from them, so the runtime tags and the crawler shells cannot drift
+  // and the strings exist in one copy only.
+  static const StaticPageSeo about = StaticPageSeo(
+    '/about',
+    'About Us',
+    'Meet the Bharat Tech Pulse editorial team and our mission of jargon-free, high-integrity technology journalism for India.',
+  );
+  static const StaticPageSeo contact = StaticPageSeo(
+    '/contact',
+    'Contact Us',
+    'Get in touch with the Bharat Tech Pulse team for tips, corrections, feedback, and partnership enquiries.',
+  );
+  static const StaticPageSeo editorialPolicy = StaticPageSeo(
+    '/editorial-policy',
+    'Editorial Policy',
+    'How Bharat Tech Pulse tests, reviews, and fact-checks technology for Indian readers.',
+  );
+  static const StaticPageSeo privacyPolicy = StaticPageSeo(
+    '/privacy-policy',
+    'Privacy Policy',
+    'How Bharat Tech Pulse collects, uses, and protects visitor information.',
+  );
+  static const StaticPageSeo terms = StaticPageSeo(
+    '/terms',
+    'Terms of Use',
+    'Terms governing the use of the Bharat Tech Pulse website.',
+  );
+  static const StaticPageSeo disclaimer = StaticPageSeo(
+    '/disclaimer',
+    'Disclaimer',
+    'Editorial, affiliate, and accuracy disclaimers for Bharat Tech Pulse content.',
+  );
+
+  /// Every indexable static page, in sitemap order.
+  static const List<StaticPageSeo> staticPages = [
+    about,
+    contact,
+    editorialPolicy,
+    privacyPolicy,
+    terms,
+    disclaimer,
+  ];
+
+  /// Resolves a [StaticPageSeo] into full page metadata (indexable, sitewide
+  /// Organization + WebSite graph), used by both the runtime and the shells.
+  static SeoMeta forStaticPage(StaticPageSeo page) => SeoMeta.page(
+        title: page.title,
+        description: page.description,
+        canonicalPath: page.path,
+      );
+
   /// Appends " | Bharat Tech Pulse" unless the title already carries the brand,
   /// so "AI — Bharat Tech Pulse" never becomes "AI — Bharat Tech Pulse | Bharat
   /// Tech Pulse".
@@ -176,4 +285,17 @@ class SeoMeta {
     if (image.startsWith('http://') || image.startsWith('https://')) return image;
     return '${SiteConfig.domain}${image.startsWith('/') ? '' : '/'}$image';
   }
+}
+
+/// SEO identity of one hand-authored static page: its route path, page title
+/// and meta description. Declared once in [SeoMeta] and consumed by the
+/// `PageSeoInit` widgets in `app_pages.dart` and by the prerenderer's shells,
+/// so neither path can fork a stale copy of the strings.
+class StaticPageSeo {
+  /// Site-relative route path, exactly as advertised in web/sitemap.xml.
+  final String path;
+  final String title;
+  final String description;
+
+  const StaticPageSeo(this.path, this.title, this.description);
 }

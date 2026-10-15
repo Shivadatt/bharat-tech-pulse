@@ -1,3 +1,4 @@
+import '../../core/errors/app_exceptions.dart';
 import '../models/analytics_summary_model.dart';
 import '../models/article_model.dart';
 import '../services/mock_data_source.dart';
@@ -7,6 +8,11 @@ import 'analytics_repository.dart';
 /// analytics screen shows numbers that genuinely came from this session's
 /// tracked events rather than an invented constant.
 class MockAnalyticsRepository implements AnalyticsRepository {
+  /// Same whitelist the `analytics_events` INSERT policy enforces in
+  /// Supabase, so a typo'd event type fails loudly during development
+  /// instead of silently storing a row production would reject.
+  static const Set<String> _allowedEvents = {'page_view', 'article_view'};
+
   final List<_MockEvent> _events = [];
 
   /// Seeds a small plausible history so the demo site is not empty on first
@@ -35,6 +41,9 @@ class MockAnalyticsRepository implements AnalyticsRepository {
     String? referrer,
     String? postId,
   }) async {
+    if (!_allowedEvents.contains(eventType)) {
+      throw ValidationException('Event type "$eventType" is not accepted.');
+    }
     _events.add(_MockEvent(
       type: eventType,
       sessionId: sessionId,

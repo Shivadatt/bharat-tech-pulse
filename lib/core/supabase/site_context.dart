@@ -13,13 +13,27 @@ class SiteContext {
   static const Duration _lookupTimeout = Duration(seconds: 10);
 
   final SupabaseClient _client;
-  String? _siteId;
+  Future<String>? _siteIdFuture;
 
   SiteContext([SupabaseClient? client]) : _client = client ?? SupabaseService.client;
 
-  Future<String> get siteId async {
-    final cached = _siteId;
-    if (cached != null) return cached;
+  /// Cached as the [Future], not as the value: `HomeController.loadHomeData`
+  /// fans out ten concurrent repository reads, and a value cache lets every one
+  /// of them observe `null` and dispatch its own `sites` lookup.
+  Future<String> get siteId => _siteIdFuture ??= _resolveSiteId();
+
+  Future<String> _resolveSiteId() async {
+    try {
+      return await _lookupSiteId();
+    } catch (_) {
+      // A failed lookup must not be memoised forever, or one transient network
+      // error poisons every later read for the rest of the session.
+      _siteIdFuture = null;
+      rethrow;
+    }
+  }
+
+  Future<String> _lookupSiteId() async {
     // Bounded so an unreachable host surfaces as an error instead of leaving
     // every dependent loading state spinning forever.
     final Map<String, dynamic>? row;
@@ -41,8 +55,6 @@ class SiteContext {
         'Site "${SiteConfig.siteId}" is not provisioned in the backend.',
       );
     }
-    final id = row['id'] as String;
-    _siteId = id;
-    return id;
+    return row['id'] as String;
   }
 }

@@ -43,6 +43,10 @@ class AuthorAvatar extends StatelessWidget {
         child: Image.network(
           url,
           fit: BoxFit.cover,
+          // Avatars render at 20-64 logical px; decoding the full-size upload
+          // is the single most wasteful image on bylines and author pages.
+          cacheWidth: (radius * 4).round(),
+          semanticLabel: name,
           errorBuilder: (context, error, stackTrace) => fallback,
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../shared/components/breadcrumb_widget.dart';
 import '../../../shared/components/section_header.dart';
@@ -12,8 +13,35 @@ import '../../../shared/widgets/article_card.dart';
 import '../../../shared/widgets/author_avatar.dart';
 import '../controllers/author_controller.dart';
 
-class AuthorView extends GetView<AuthorController> {
+class AuthorView extends StatefulWidget {
   const AuthorView({super.key});
+
+  @override
+  State<AuthorView> createState() => _AuthorViewState();
+}
+
+class _AuthorViewState extends State<AuthorView> {
+  AuthorController get controller => Get.find<AuthorController>();
+
+  @override
+  void initState() {
+    super.initState();
+    // GetX keeps the type-keyed controller alive across author routes, so
+    // moving profile-to-profile would otherwise reuse the first profile.
+    controller.ensureCurrentRouteLoaded();
+  }
+
+  void _copyEmail(String email) {
+    Clipboard.setData(ClipboardData(text: email));
+    Get.snackbar(
+      'Email Copied',
+      '$email copied to your clipboard.',
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 2),
+      margin: const EdgeInsets.all(16),
+      maxWidth: 400,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +72,6 @@ class AuthorView extends GetView<AuthorController> {
             children: [
               BreadcrumbWidget(
                 items: [
-                  const BreadcrumbItem(label: 'Authors', route: '/about'),
                   BreadcrumbItem(label: author.name),
                 ],
               ),
@@ -88,14 +115,15 @@ class AuthorView extends GetView<AuthorController> {
                       spacing: 12,
                       runSpacing: 8,
                       children: [
+                        // No url_launcher in this project: the handle is a
+                        // display-only chip so it never advertises a dead link.
                         if (author.twitter.isNotEmpty)
-                          ActionChip(
+                          Chip(
                             avatar: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
                             label: Text(author.twitter,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 12)),
-                            onPressed: () {},
                           ),
                         if (author.email.isNotEmpty)
                           ActionChip(
@@ -104,7 +132,7 @@ class AuthorView extends GetView<AuthorController> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 12)),
-                            onPressed: () {},
+                            onPressed: () => _copyEmail(author.email),
                           ),
                       ],
                     ),

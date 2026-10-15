@@ -318,7 +318,7 @@ class _AdminAvatar extends StatelessWidget {
       final profile = controller.profile.value;
       final url = profile?.avatarUrl;
       final initials = _initialsFor(profile?.fullName ?? controller.emailController.text);
-      if (url == null || url.isEmpty) {
+      if (url == null || url.trim().isEmpty) {
         return _initials(theme, initials);
       }
       return ClipOval(

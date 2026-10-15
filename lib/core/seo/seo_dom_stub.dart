@@ -3,6 +3,8 @@ class SeoDom {
   static void apply({
     required String title,
     required String description,
+    required String ogTitle,
+    required String ogDescription,
     required String canonicalUrl,
     required String ogImage,
     required String ogType,

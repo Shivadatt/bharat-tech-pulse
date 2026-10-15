@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../core/errors/app_exceptions.dart';
 import '../models/media_model.dart';
 import 'media_repository.dart';
 
@@ -73,11 +74,16 @@ class MockMediaRepository implements MediaRepository {
     String? altText,
   }) async {
     await Future.delayed(const Duration(milliseconds: 120));
+    // Same validation and same exception family (ValidationException, an
+    // AppException) the Supabase path now enforces, so the CMS error handling
+    // is exercised identically in mock mode.
     if (fileName.trim().isEmpty) {
-      throw ArgumentError('A file name is required.');
+      throw const ValidationException('A file name is required.');
     }
     if (bytes.lengthInBytes > maxUploadBytes) {
-      throw StateError('File is larger than the 5MB upload limit.');
+      throw const ValidationException(
+        'File is larger than the 5MB upload limit.',
+      );
     }
     final now = DateTime.now();
     final model = MediaModel(

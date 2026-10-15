@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../app/config/site_config.dart';
 import '../../data/models/article_model.dart';
+import '../../data/models/author_model.dart';
 import '../../data/models/category_model.dart';
 import 'seo_dom.dart';
 import 'seo_meta.dart';
@@ -58,6 +59,8 @@ class SeoService extends GetxService {
       SeoDom.apply(
         title: meta.title,
         description: meta.description,
+        ogTitle: meta.ogTitle,
+        ogDescription: meta.ogDescription,
         canonicalUrl: meta.canonicalUrl,
         ogImage: meta.ogImage,
         ogType: meta.ogType,
@@ -91,6 +94,11 @@ class SeoService extends GetxService {
   void updateArticleSeo(ArticleModel art) => applyMeta(SeoMeta.forArticle(art));
 
   void updateCategorySeo(CategoryModel cat) => applyMeta(SeoMeta.forCategory(cat));
+
+  /// Author profile metadata + Person/ProfilePage graph. The prerendered shell
+  /// for `/author/<slug>` is built from the same `SeoMeta.forAuthor`, so the
+  /// live page and the crawler copy agree on `og:type` and the graph.
+  void updateAuthorSeo(AuthorModel auth) => applyMeta(SeoMeta.forAuthor(auth));
 
   /// Legacy entry point kept for callers that only have primitive fields;
   /// delegates to a minimal BlogPosting graph.

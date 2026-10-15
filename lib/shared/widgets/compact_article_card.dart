@@ -31,6 +31,7 @@ class CompactArticleCard extends StatelessWidget {
                   cacheWidth: 180,
                   cacheHeight: 140,
                   fallbackIcon: null,
+                  semanticLabel: article.title,
                 ),
               ),
             ),

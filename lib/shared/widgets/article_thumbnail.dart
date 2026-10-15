@@ -12,12 +12,16 @@ class ArticleThumbnail extends StatelessWidget {
   /// Pass `null` for the small thumbnails that read better as a flat fill.
   final IconData? fallbackIcon;
 
+  /// Alt text for screen readers — callers should pass the article title.
+  final String? semanticLabel;
+
   const ArticleThumbnail({
     super.key,
     required this.url,
     this.cacheWidth,
     this.cacheHeight,
     this.fallbackIcon = Icons.broken_image_rounded,
+    this.semanticLabel,
   });
 
   @override
@@ -37,6 +41,7 @@ class ArticleThumbnail extends StatelessWidget {
       fit: BoxFit.cover,
       cacheWidth: cacheWidth,
       cacheHeight: cacheHeight,
+      semanticLabel: semanticLabel,
       errorBuilder: (context, error, stackTrace) => placeholder,
     );
   }

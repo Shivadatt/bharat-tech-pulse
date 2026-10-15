@@ -10,10 +10,19 @@ class PopularArticleCard extends StatelessWidget {
 
   const PopularArticleCard({super.key, required this.article});
 
+  static final NumberFormat _compact = NumberFormat.compact();
+
+  /// `Colors.orange.shade700` measures 2.7:1 on the white light-mode card, so
+  /// the label darkens there and keeps the original hue on the dark surface
+  /// (6.2:1) instead of changing the accent itself.
+  static Color _accent(Brightness brightness) => brightness == Brightness.dark
+      ? Colors.orange.shade700
+      : const Color(0xFFC2410C);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final formatter = NumberFormat.compact();
+    final accent = _accent(theme.brightness);
 
     return InkWell(
       onTap: () => Get.toNamed('/article/${article.slug}'),
@@ -39,6 +48,7 @@ class PopularArticleCard extends StatelessWidget {
                   cacheWidth: 160,
                   cacheHeight: 160,
                   fallbackIcon: null,
+                  semanticLabel: article.title,
                 ),
               ),
             ),
@@ -50,13 +60,15 @@ class PopularArticleCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(Icons.local_fire_department_rounded,
-                          size: 14, color: Colors.orange.shade700),
+                          size: 14, color: accent),
                       const SizedBox(width: 4),
-                      Text(
-                        '${formatter.format(article.viewCount)} views',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.orange.shade700,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          '${_compact.format(article.viewCount)} views',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: accent,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],

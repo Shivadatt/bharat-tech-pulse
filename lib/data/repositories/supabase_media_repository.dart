@@ -14,6 +14,10 @@ import 'media_repository.dart';
 class SupabaseMediaRepository implements MediaRepository {
   static const _bucket = 'media';
 
+  /// Same cap the mock enforces (and the web file picker pre-checks): an
+  /// oversized upload must fail fast here, not half-store in Storage.
+  static const int maxUploadBytes = 5 * 1024 * 1024;
+
   final SiteContext _site;
   SupabaseMediaRepository({SiteContext? siteContext})
       : _site = siteContext ?? SiteContext();
@@ -41,6 +45,16 @@ class SupabaseMediaRepository implements MediaRepository {
     String? altText,
   }) =>
       guardPostgrest(() async {
+        // Validate before any byte leaves the app, exactly like the mock:
+        // an empty name or an oversized file must never reach Storage.
+        if (fileName.trim().isEmpty) {
+          throw const ValidationException('A file name is required.');
+        }
+        if (bytes.lengthInBytes > maxUploadBytes) {
+          throw const ValidationException(
+            'File is larger than the 5MB upload limit.',
+          );
+        }
         final siteId = await _site.siteId;
         final sanitized = _sanitizeFileName(fileName);
         final path = '${SiteConfig.siteId}/${_uuidV4()}-$sanitized';

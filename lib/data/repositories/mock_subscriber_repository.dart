@@ -4,6 +4,11 @@ import 'subscriber_repository.dart';
 
 /// In-memory subscriber list for mock mode and tests.
 class MockSubscriberRepository implements SubscriberRepository {
+  /// Same pattern the Supabase implementation enforces — a bare `contains('@')`
+  /// would let mock-only typos through.
+  static final RegExp _emailPattern =
+      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+
   final List<SubscriberModel> _storage;
 
   MockSubscriberRepository([List<SubscriberModel>? seed])
@@ -37,8 +42,12 @@ class MockSubscriberRepository implements SubscriberRepository {
   Future<List<SubscriberModel>> getSubscribers(
           {int limit = 50, int offset = 0}) async {
     await Future.delayed(const Duration(milliseconds: 30));
-    if (offset >= _storage.length) return [];
-    return _storage.skip(offset).take(limit).toList();
+    // Supabase orders the admin list `subscribed_at desc`; mirror it so the
+    // page-walk in the UI sees rows in the same position as production.
+    final sorted = List<SubscriberModel>.from(_storage)
+      ..sort((a, b) => b.subscribedAt.compareTo(a.subscribedAt));
+    if (offset >= sorted.length) return [];
+    return sorted.skip(offset).take(limit).toList();
   }
 
   @override
@@ -48,7 +57,7 @@ class MockSubscriberRepository implements SubscriberRepository {
   Future<SubscriberModel?> subscribe(String email, {String? name}) async {
     await Future.delayed(const Duration(milliseconds: 40));
     final trimmed = email.trim();
-    if (!trimmed.contains('@') || trimmed.endsWith('@')) {
+    if (!_emailPattern.hasMatch(trimmed)) {
       throw const ValidationException('Please enter a valid email address.');
     }
     if (_storage.any((s) => s.email.toLowerCase() == trimmed.toLowerCase())) {

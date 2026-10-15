@@ -22,6 +22,9 @@ class AdminArticleController extends GetxController {
   });
 
   final RxBool isLoading = true.obs;
+  // In-flight guard for saveArticle(): a double click on Save Draft /
+  // Schedule / Publish would otherwise write two rows for a new post.
+  final RxBool isSaving = false.obs;
   final RxnString loadError = RxnString();
   final RxList<ArticleModel> articles = <ArticleModel>[].obs;
   final RxList<CategoryModel> categories = <CategoryModel>[].obs;
@@ -83,10 +86,12 @@ class AdminArticleController extends GetxController {
       final arts = await articleRepository.getAllArticlesForAdmin();
       articles.assignAll(arts);
 
-      final cats = await categoryRepository.getCategories();
+      // Admin dropdowns must see archived categories/authors too, or editing a
+      // post filed under one silently drops its category/author.
+      final cats = await categoryRepository.getCategoriesForAdmin();
       categories.assignAll(cats);
 
-      final auths = await categoryRepository.getAuthors();
+      final auths = await categoryRepository.getAuthorsForAdmin();
       authors.assignAll(auths);
     } on AppException catch (e) {
       // Without this the list view sat on "loading forever" and the failure
@@ -191,6 +196,10 @@ class AdminArticleController extends GetxController {
   }
 
   Future<void> saveArticle({required String newStatus}) async {
+    // Re-entrant click guard: while a save is in flight, ignore further saves
+    // (the toolbar buttons are disabled too, but the controller is the last
+    // line of defence against writing duplicate rows).
+    if (isSaving.value) return;
     // Anything that puts text in front of readers is an editorial decision:
     // `posts_insert_staff` only accepts an author-tier status='draft' row, so
     // the toolbar hides these actions and this check backs it up.
@@ -291,9 +300,15 @@ class AdminArticleController extends GetxController {
       tags: tags,
       author: author,
       // Scheduled articles surface in feeds sorted by publishedAt, so anchor
-      // it to the go-live time rather than the creation moment.
-      publishedAt:
-          articleStatus == ArticleStatus.scheduled ? scheduleDate.value : publishDate.value,
+      // it to the go-live time rather than the creation moment. Editing an
+      // already-published post must keep its original publishedAt (it feeds
+      // datePublished / article:published_time); publishDate here is merely
+      // this controller's construction time. Only a first publish sets it.
+      publishedAt: articleStatus == ArticleStatus.scheduled
+          ? scheduleDate.value
+          : (current != null && current.status == ArticleStatus.published
+              ? current.publishedAt
+              : publishDate.value),
       updatedAt: DateTime.now(),
       featuredImage: featuredImageController.text.trim(),
       readingTimeMinutes: current?.readingTimeMinutes ?? 5,
@@ -318,6 +333,7 @@ class AdminArticleController extends GetxController {
       ogImage: orFallback(ogImageController.text, featuredImageController.text.trim()),
     );
 
+    isSaving.value = true;
     try {
       if (editingArticleId != null) {
         final updated = await articleRepository.updateArticle(article);
@@ -345,6 +361,10 @@ class AdminArticleController extends GetxController {
       Get.snackbar('Not Saved', 'The article could not be written to the backend.',
           backgroundColor: Colors.red, colorText: Colors.white);
       return;
+    } finally {
+      // Runs on every exit path (including the returns above), so the toolbar
+      // re-enables whether the write succeeded or failed.
+      isSaving.value = false;
     }
 
     await loadArticlesAndMeta();

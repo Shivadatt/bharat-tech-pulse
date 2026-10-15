@@ -26,93 +26,109 @@ class _ArticleCardState extends State<ArticleCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
+      child: Semantics(
+        button: true,
+        label: article.title,
+        // GestureDetector adds no semantics of its own, so screen-reader
+        // users could not even discover this card as a link without this
+        // node; onTap mirrors the gesture for touchExplore activation.
         onTap: () => Get.toNamed('/article/${article.slug}'),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          transform: _isHovered ? Matrix4.translationValues(0, -4, 0) : Matrix4.identity(),
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _isHovered ? theme.colorScheme.primary : theme.colorScheme.outline,
-              width: 1.2,
-            ),
-            boxShadow: _isHovered
-                ? [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withAlpha(25),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    )
-                  ]
-                : [],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image container
-              Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: ArticleThumbnail(
-                      url: article.featuredImage,
-                      cacheWidth: 800,
-                      cacheHeight: 450,
-                    ),
-                  ),
-                  // Both horizontal edges are pinned so the chip is measured
-                  // against the image width; a left-only Positioned child gets
-                  // unbounded width and its label runs off the clipped image.
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    right: 12,
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: CategoryChip(
-                        label: article.categoryName,
-                        slug: article.categorySlug,
-                      ),
-                    ),
-                  ),
-                ],
+        child: GestureDetector(
+          onTap: () => Get.toNamed('/article/${article.slug}'),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            transform: _isHovered ? Matrix4.translationValues(0, -4, 0) : Matrix4.identity(),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _isHovered ? theme.colorScheme.primary : theme.colorScheme.outline,
+                width: 1.2,
               ),
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              boxShadow: _isHovered
+                  ? [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withAlpha(25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      )
+                    ]
+                  : [],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Image container
+                Stack(
                   children: [
-                    Text(
-                      article.title,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: _isHovered ? theme.colorScheme.primary : null,
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: ArticleThumbnail(
+                        url: article.featuredImage,
+                        cacheWidth: 800,
+                        cacheHeight: 450,
+                        semanticLabel: article.title,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      article.excerpt,
-                      style: theme.textTheme.bodyMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 16),
-                    ArticleMetaWidget(
-                      authorName: article.author.name,
-                      date: article.publishedAt,
-                      readingTimeMinutes: article.readingTimeMinutes,
-                      compact: true,
+                    // Both horizontal edges are pinned so the chip is measured
+                    // against the image width; a left-only Positioned child gets
+                    // unbounded width and its label runs off the clipped image.
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      right: 12,
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        // Own semantics container so the chip's InkWell stays a
+                        // distinct target instead of merging into the card's
+                        // button label.
+                        child: Semantics(
+                          container: true,
+                          button: true,
+                          child: CategoryChip(
+                            label: article.categoryName,
+                            slug: article.categorySlug,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        article.title,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _isHovered ? theme.colorScheme.primary : null,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        article.excerpt,
+                        style: theme.textTheme.bodyMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 16),
+                      ArticleMetaWidget(
+                        authorName: article.author.name,
+                        date: article.publishedAt,
+                        readingTimeMinutes: article.readingTimeMinutes,
+                        compact: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

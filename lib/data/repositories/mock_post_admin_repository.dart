@@ -36,10 +36,13 @@ class MockPostAdminRepository implements PostAdminRepository {
   @override
   Future<List<ArticleModel>> listAll({int limit = 20, int offset = 0}) async {
     await Future.delayed(const Duration(milliseconds: 60));
-    final sorted = List<ArticleModel>.from(_storage)
-      ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-    if (offset >= sorted.length) return [];
-    return sorted.skip(offset).take(limit).toList();
+    // Supabase orders the CMS list `created_at desc`, NOT published_at.
+    // ArticleModel carries no created_at, so storage order is the mock's
+    // creation order: creates prepend, edits replace in place, so reading the
+    // list as-is matches the backend exactly (sorting by publishedAt sent
+    // drafts with old publish dates to the back of the queue).
+    if (offset >= _storage.length) return [];
+    return _storage.skip(offset).take(limit).toList();
   }
 
   @override
@@ -79,19 +82,59 @@ class MockPostAdminRepository implements PostAdminRepository {
     final index = _storage.indexWhere((a) => a.id == id);
     if (index == -1) return false;
     final current = _storage[index];
-    _storage[index] = current.copyWith(
+    var updated = current.copyWith(
       status: status,
-      scheduledFor: clearScheduledFor == true
-          ? current.scheduledFor
-          : scheduledFor,
+      scheduledFor: scheduledFor,
       publishedAt: publishedAt,
       isTrending: isTrending,
       isFeatured: isFeatured,
       isPopular: isPopular,
       updatedAt: DateTime.now(),
     );
+    // Supabase's patchToColumns nulls scheduled_for when the patch asks to
+    // clear it and no new time is given. copyWith cannot write null (it falls
+    // back to the current value), so clearing the flag kept a stale go-live
+    // time and publishNow published against the old schedule.
+    if (scheduledFor == null && clearScheduledFor == true) {
+      updated = _withoutScheduledFor(updated);
+    }
+    _storage[index] = updated;
     return true;
   }
+
+  /// Rebuilds [a] with `scheduledFor` nulled — every other field copied.
+  /// Needed because [ArticleModel.copyWith] treats a null argument as
+  /// "keep current".
+  ArticleModel _withoutScheduledFor(ArticleModel a) => ArticleModel(
+        id: a.id,
+        slug: a.slug,
+        title: a.title,
+        excerpt: a.excerpt,
+        content: a.content,
+        categorySlug: a.categorySlug,
+        categoryName: a.categoryName,
+        subcategory: a.subcategory,
+        tags: a.tags,
+        author: a.author,
+        publishedAt: a.publishedAt,
+        updatedAt: a.updatedAt,
+        featuredImage: a.featuredImage,
+        readingTimeMinutes: a.readingTimeMinutes,
+        status: a.status,
+        isFeatured: a.isFeatured,
+        isTrending: a.isTrending,
+        isPopular: a.isPopular,
+        viewCount: a.viewCount,
+        keyTakeaways: a.keyTakeaways,
+        faqs: a.faqs,
+        toc: a.toc,
+        seoTitle: a.seoTitle,
+        seoDescription: a.seoDescription,
+        canonicalUrl: a.canonicalUrl,
+        ogTitle: a.ogTitle,
+        ogDescription: a.ogDescription,
+        ogImage: a.ogImage,
+      );
 
   @override
   Future<List<PostRevisionModel>> revisions(String postId) async {

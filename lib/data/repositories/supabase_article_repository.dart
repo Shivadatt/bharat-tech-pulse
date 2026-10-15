@@ -24,12 +24,14 @@ class SupabaseArticleRepository implements ArticleRepository {
       'authors(id,name,slug,bio,avatar_url,designation,social_links), '
       'tags(name,slug)';
 
-  /// Same embeds, but `tags` is an inner join so a single tag id can filter the
-  /// parent posts. The `tags` array then holds only the matched tag.
+  /// Same base select used by [getArticlesByTag]: the tag filter runs
+  /// through an inner join on the `post_tags` junction, while `tags` stays a
+  /// plain embed so each returned post keeps its FULL tag list, not just the
+  /// matched tag (an inner join on the `tags` embed truncated it).
   static const String tagFilteredSelect =
       '*, categories(name,slug), '
       'authors(id,name,slug,bio,avatar_url,designation,social_links), '
-      'tags!inner(id,name,slug)';
+      'tags(name,slug), post_tags!inner(tag_id)';
 
   final SiteContext _site;
   SupabaseArticleRepository({SiteContext? siteContext})
@@ -485,8 +487,10 @@ class SupabaseArticleRepository implements ArticleRepository {
         if (tag == null) return const <ArticleModel>[];
         // Filter through the junction with an inner embed instead of shipping
         // every matching post id in an `in` clause (URL-length limit at scale).
+        // The inner join is on `post_tags`, NOT on the `tags` embed, so the
+        // parent row keeps all of its tags (see [tagFilteredSelect]).
         final rows = await _publicQuery(siteId, select: tagFilteredSelect)
-            .eq('tags.id', tag['id'])
+            .eq('post_tags.tag_id', tag['id'])
             .order('published_at', ascending: false)
             .limit(limit);
         return rows.map((r) => rowToArticle(r)).toList();
@@ -497,15 +501,30 @@ class SupabaseArticleRepository implements ArticleRepository {
       guardPostgrest(() async {
         final q = query.trim();
         if (q.isEmpty) return const <ArticleModel>[];
-        // Strip PostgREST/ilike filter metacharacters so free-text search cannot
-        // break the or() clause or inject wildcards (`%` and `_`).
-        final safe = q.replaceAll(RegExp(r'[,%_()]'), ' ').trim();
-        if (safe.isEmpty) return const <ArticleModel>[];
+        // Strip PostgREST/ilike filter metacharacters so free-text search
+        // cannot break the or() clause or inject wildcards (`%` and `_`),
+        // then split on the introduced gaps. Searching every remaining term
+        // separately (AND across terms, OR across fields) keeps a legitimate
+        // term like "hello,world" from being matched as the corrupted phrase
+        // "hello world", while each per-term pattern stays injection-safe.
+        final terms = q
+            .replaceAll(RegExp(r'''[,%_()*"']'''), ' ')
+            .split(RegExp(r'\s+'))
+            .where((t) => t.isNotEmpty)
+            .toList();
+        if (terms.isEmpty) return const <ArticleModel>[];
         final siteId = await _site.siteId;
-        final rows = await _publicQuery(siteId)
-            .or('title.ilike.%$safe%,excerpt.ilike.%$safe%,'
-                'content.ilike.%$safe%')
-            .order('published_at', ascending: false);
+        var search = _publicQuery(siteId);
+        for (final term in terms) {
+          search = search.or('title.ilike.%$term%,excerpt.ilike.%$term%,'
+              'content.ilike.%$term%');
+        }
+        // A one-character query otherwise streams every published row with its
+        // full markdown body, and the search view builds all of those cards in
+        // one frame.
+        final rows = await search
+            .order('published_at', ascending: false)
+            .limit(50);
         return rows.map((r) => rowToArticle(r)).toList();
       });
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../app/theme/theme_colors.dart';
 import '../../data/models/article_model.dart';
 import '../responsive/responsive_breakpoints.dart';
 import 'article_meta_widget.dart';
@@ -18,6 +19,13 @@ class FeaturedArticleCard extends StatefulWidget {
 class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
   bool _isHovered = false;
 
+  /// Brand saffron reads 2.1:1 against the white light-mode card, so the badge
+  /// darkens to amber there and keeps the tricolour accent in dark mode.
+  static Color _saffronOn(Brightness brightness) =>
+      brightness == Brightness.dark
+          ? AppColors.saffron
+          : const Color(0xFFB45309);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -28,9 +36,15 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
+      child: Semantics(
+        button: true,
+        label: article.title,
+        // GestureDetector adds no semantics node, so without this a
+        // screen-reader user cannot discover the card as an activatable link.
         onTap: () => Get.toNamed('/article/${article.slug}'),
-        child: AnimatedContainer(
+        child: GestureDetector(
+          onTap: () => Get.toNamed('/article/${article.slug}'),
+          child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           decoration: BoxDecoration(
             color: theme.cardColor,
@@ -49,6 +63,7 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
           ),
           clipBehavior: Clip.antiAlias,
           child: isDesktop ? _buildDesktopLayout(theme, article) : _buildMobileLayout(theme, article),
+          ),
         ),
       ),
     );
@@ -67,6 +82,7 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
                 ArticleThumbnail(
                   url: article.featuredImage,
                   fallbackIcon: null,
+                  semanticLabel: article.title,
                 ),
                 Container(
                   decoration: BoxDecoration(
@@ -86,9 +102,13 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
                   right: 20,
                   child: Align(
                     alignment: Alignment.topLeft,
-                    child: CategoryChip(
-                      label: article.categoryName,
-                      slug: article.categorySlug,
+                    child: Semantics(
+                      container: true,
+                      button: true,
+                      child: CategoryChip(
+                        label: article.categoryName,
+                        slug: article.categorySlug,
+                      ),
                     ),
                   ),
                 ),
@@ -108,14 +128,17 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF9933).withAlpha(30),
+                          color: _saffronOn(theme.brightness).withAlpha(30),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFFF9933), width: 1),
+                          border: Border.all(
+                            color: _saffronOn(theme.brightness),
+                            width: 1,
+                          ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'FEATURED STORY',
                           style: TextStyle(
-                            color: Color(0xFFFF9933),
+                            color: _saffronOn(theme.brightness),
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
@@ -123,9 +146,11 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        '${article.readingTimeMinutes} min read',
-                        style: theme.textTheme.bodySmall,
+                      Flexible(
+                        child: Text(
+                          '${article.readingTimeMinutes} min read',
+                          style: theme.textTheme.bodySmall,
+                        ),
                       ),
                     ],
                   ),
@@ -175,6 +200,7 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
               child: ArticleThumbnail(
                 url: article.featuredImage,
                 fallbackIcon: null,
+                semanticLabel: article.title,
               ),
             ),
             Positioned(
@@ -183,9 +209,13 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
               right: 14,
               child: Align(
                 alignment: Alignment.topLeft,
-                child: CategoryChip(
-                  label: article.categoryName,
-                  slug: article.categorySlug,
+                child: Semantics(
+                  container: true,
+                  button: true,
+                  child: CategoryChip(
+                    label: article.categoryName,
+                    slug: article.categorySlug,
+                  ),
                 ),
               ),
             ),
@@ -198,8 +228,8 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
             children: [
               Text(
                 'FEATURED STORY',
-                style: const TextStyle(
-                  color: Color(0xFFFF9933),
+                style: TextStyle(
+                  color: _saffronOn(theme.brightness),
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,

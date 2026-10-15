@@ -20,7 +20,11 @@ class DateFormatter {
 
   static String timeAgo(DateTime dateTime) {
     final difference = DateTime.now().difference(dateTime);
-    if (difference.inDays > 30) {
+    // A future-dated stamp (a scheduled flip, or a clock that ran ahead) is
+    // negative, so every branch below fell through and it read "Just now"
+    // permanently. Show the real date instead.
+    if (difference.isNegative) return formatShort(dateTime);
+    if (difference.inDays >= 30) {
       return formatShort(dateTime);
     } else if (difference.inDays >= 1) {
       return '${difference.inDays} ${difference.inDays == 1 ? 'day' : 'days'} ago';

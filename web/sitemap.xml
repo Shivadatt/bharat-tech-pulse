@@ -75,13 +75,39 @@
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
+  <!-- Author profiles: kept in sync with the shells emitted by
+       tool/generate_prerender.dart (authors in 006_seed_data.sql). No
+       lastmod: author rows carry no content date that could be quoted. -->
+  <url>
+    <loc>https://bharattechpulse.in/author/aravind-sharma</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bharattechpulse.in/author/priya-nambiar</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bharattechpulse.in/author/rohit-deshmukh</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://bharattechpulse.in/author/sneha-kulkarni</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
   <!-- Published articles. Regenerate this list when the CMS publishes new
        posts: it is a static file served before any JavaScript runs, so it
        cannot read the backend. Source of truth = `select slug, published_at
        from posts where status = 'published'`. -->
+  <!-- lastmod values are clamped to the newest real content date the site
+       publishes on; the seed's 2026-10-18 `updated_at` for this post is in
+       the future and must not surface as a lastmod/dateModified claim. -->
   <url>
     <loc>https://bharattechpulse.in/article/choose-right-ai-tool-honest-framework</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-10-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

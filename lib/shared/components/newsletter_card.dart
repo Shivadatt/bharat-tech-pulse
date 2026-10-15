@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../core/errors/app_exceptions.dart';
+import '../../data/repositories/subscriber_repository.dart';
 
 class NewsletterCard extends StatefulWidget {
   final bool compact;
@@ -12,17 +15,59 @@ class NewsletterCard extends StatefulWidget {
 class _NewsletterCardState extends State<NewsletterCard> {
   final _emailController = TextEditingController();
   bool _isSubscribed = false;
+  bool _isSubmitting = false;
+  String? _errorText;
 
-  void _handleSubscribe() {
-    if (_emailController.text.contains('@')) {
-      setState(() => _isSubscribed = true);
-    }
-  }
+  static final RegExp _emailPattern =
+      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 
   @override
   void dispose() {
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleSubscribe() async {
+    final email = _emailController.text.trim();
+    if (!_emailPattern.hasMatch(email)) {
+      setState(() => _errorText = 'Please enter a valid email address.');
+      return;
+    }
+    // Resolved defensively so widget tests that mount this card without the
+    // app's repository binding keep working instead of throwing on Get.find.
+    final repository = Get.isRegistered<SubscriberRepository>()
+        ? Get.find<SubscriberRepository>()
+        : null;
+    if (repository == null) {
+      setState(() => _errorText = 'Subscriptions are unavailable right now.');
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+      _errorText = null;
+    });
+    try {
+      // A null result means the address was already subscribed — either way
+      // the address is stored, so success is truthful here.
+      await repository.subscribe(email);
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _isSubscribed = true;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorText = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorText = 'Could not save your email. Please try again later.';
+      });
+    }
   }
 
   @override
@@ -85,15 +130,15 @@ class _NewsletterCardState extends State<NewsletterCard> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF22C55E)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E), size: 18),
-                  SizedBox(width: 8),
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E), size: 18),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Welcome to Bharat Tech Weekly! Check your inbox to confirm.',
+                      "You're on the list! Your first Sunday digest is on its way.",
                       style: TextStyle(
-                        color: Color(0xFF22C55E),
+                        color: theme.textTheme.bodySmall?.color,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -105,19 +150,30 @@ class _NewsletterCardState extends State<NewsletterCard> {
           else ...[
             TextField(
               controller: _emailController,
+              enabled: !_isSubmitting,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _handleSubscribe(),
               decoration: InputDecoration(
                 hintText: 'Enter your email address',
                 isDense: true,
                 filled: true,
                 fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                errorText: _errorText,
               ),
             ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _handleSubscribe,
-                child: const Text('Subscribe for Free'),
+                onPressed: _isSubmitting ? null : _handleSubscribe,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Subscribe for Free'),
               ),
             ),
           ],

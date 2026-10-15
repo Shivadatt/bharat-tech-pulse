@@ -9,7 +9,11 @@ import 'supabase_service.dart';
 /// [SupabaseService.initialized] is true; every error is mapped to the
 /// app-wide [AppException] family so raw provider messages never reach the UI.
 class AuthService {
-  StreamSubscription<AuthState>? _subscription;
+  /// Fan-out hub: one internal subscription to gotrue, handed to every
+  /// caller as an independent listener so a second subscriber can never
+  /// silence the first.
+  StreamController<AuthState>? _authStateHub;
+  StreamSubscription<AuthState>? _sourceSubscription;
 
   SupabaseClient get _client => SupabaseService.client;
 
@@ -41,19 +45,36 @@ class AuthService {
     }
   }
 
-  /// Subscribes to auth state changes. Only one subscription is held at a
-  /// time; the previous one is cancelled. Cancel via [dispose].
+  /// Subscribes to auth state changes. Callers may hold several concurrent
+  /// subscriptions: each callback receives every auth event until ITS OWN
+  /// returned handle is cancelled — a second subscriber no longer cancels an
+  /// earlier one. Cancel via the returned handle or [dispose].
   StreamSubscription<AuthState> onAuthStateChange(
     void Function(AuthState state) callback,
   ) {
-    _subscription?.cancel();
-    _subscription = _client.auth.onAuthStateChange.listen(callback);
-    return _subscription!;
+    final hub = _authStateHub ??= StreamController<AuthState>.broadcast(
+      sync: true,
+    );
+    _sourceSubscription ??= _client.auth.onAuthStateChange.listen(
+      hub.add,
+      onError: hub.addError,
+      onDone: () {
+        // Gotrue closed the source stream (e.g. signOut teardown): drop the
+        // mirror so a later subscriber re-attaches to a live source.
+        unawaited(_sourceSubscription?.cancel());
+        _sourceSubscription = null;
+        _authStateHub?.close();
+        _authStateHub = null;
+      },
+    );
+    return hub.stream.listen(callback);
   }
 
   void dispose() {
-    _subscription?.cancel();
-    _subscription = null;
+    unawaited(_sourceSubscription?.cancel());
+    _sourceSubscription = null;
+    _authStateHub?.close();
+    _authStateHub = null;
   }
 
   AuthException _mapAuthError(AuthApiException e) {

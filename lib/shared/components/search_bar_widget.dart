@@ -54,6 +54,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
         hintText: 'Search AI, phones, apps, how-to guides...',
         prefixIcon: const Icon(Icons.search_rounded, size: 20),
         suffixIcon: IconButton(
+          tooltip: 'Run search',
           icon: const Icon(Icons.arrow_forward_rounded, size: 18),
           onPressed: _triggerSearch,
         ),

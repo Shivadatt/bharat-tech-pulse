@@ -10,6 +10,8 @@ class SeoDom {
   static void apply({
     required String title,
     required String description,
+    required String ogTitle,
+    required String ogDescription,
     required String canonicalUrl,
     required String ogImage,
     required String ogType,
@@ -28,8 +30,8 @@ class SeoDom {
     _setMeta('name', 'robots', robots);
 
     _setMeta('property', 'og:site_name', ogSiteName);
-    _setMeta('property', 'og:title', title);
-    _setMeta('property', 'og:description', description);
+    _setMeta('property', 'og:title', ogTitle);
+    _setMeta('property', 'og:description', ogDescription);
     _setMeta('property', 'og:url', canonicalUrl);
     _setMeta('property', 'og:image', ogImage);
     _setMeta('property', 'og:type', ogType);
@@ -37,15 +39,29 @@ class SeoDom {
 
     _setMeta('name', 'twitter:card', 'summary_large_image');
     _setMeta('name', 'twitter:site', twitterHandle);
-    _setMeta('name', 'twitter:title', title);
-    _setMeta('name', 'twitter:description', description);
+    _setMeta('name', 'twitter:title', ogTitle);
+    _setMeta('name', 'twitter:description', ogDescription);
     _setMeta('name', 'twitter:image', ogImage);
+
+    // Article-only tags are additive by nature: after a reader visits a story,
+    // `/about`, `/search`, a category and the soft-404 kept that article's
+    // `article:published_time`, `article:section` and `name=author`, because
+    // `_setMeta` only ever writes or creates - it never removes.
+    _removeMatching('meta[property^="article:"]');
+    _removeMatching('meta[name="author"]');
 
     properties.forEach((key, value) => _setMeta('property', key, value));
     names.forEach((key, value) => _setMeta('name', key, value));
 
     _setCanonical(canonicalUrl);
     _setJsonLd(jsonLd);
+  }
+
+  static void _removeMatching(String selector) {
+    final found = web.document.querySelectorAll(selector);
+    for (var i = found.length - 1; i >= 0; i--) {
+      found.item(i)?.remove();
+    }
   }
 
   // Creates the tag when it is absent: the pre-remediation version only
@@ -64,6 +80,13 @@ class SeoDom {
   }
 
   static void _setCanonical(String href) {
+    // An empty canonicalUrl is SeoMeta's "suppress the tag" signal (a noindex
+    // route with no declared path). Writing `href=""` would resolve to the
+    // page's own URL, which is the opposite of what the shell renderer does.
+    if (href.isEmpty) {
+      _removeMatching('link[rel="canonical"]');
+      return;
+    }
     var element =
         web.document.querySelector('link[rel="canonical"]') as web.HTMLLinkElement?;
     if (element == null) {

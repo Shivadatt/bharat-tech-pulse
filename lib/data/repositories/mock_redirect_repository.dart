@@ -3,6 +3,10 @@ import '../models/redirect_model.dart';
 import 'redirect_repository.dart';
 
 class MockRedirectRepository implements RedirectRepository {
+  /// Same shape rule the Supabase implementation enforces: paths must start
+  /// with "/" and contain no spaces.
+  static final RegExp _pathPattern = RegExp(r'^/[^\s]*$');
+
   final List<RedirectModel> _storage = [
     RedirectModel(
       id: 'redir-1',
@@ -14,8 +18,12 @@ class MockRedirectRepository implements RedirectRepository {
 
   @override
   Future<List<RedirectModel>> getRedirects(
-          {int limit = 50, int offset = 0}) async =>
-      _storage.skip(offset).take(limit).toList();
+          {int limit = 50, int offset = 0}) async {
+    // Supabase orders this list `created_at desc`.
+    final sorted = List<RedirectModel>.from(_storage)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.skip(offset).take(limit).toList();
+  }
 
   @override
   Future<RedirectModel?> createRedirect(
@@ -25,11 +33,16 @@ class MockRedirectRepository implements RedirectRepository {
   }) async {
     final from = oldPath.trim();
     final to = newPath.trim();
-    if (!from.startsWith('/') || !to.startsWith('/')) {
-      throw const ValidationException('Redirect paths must start with "/".');
+    if (!_pathPattern.hasMatch(from) || !_pathPattern.hasMatch(to)) {
+      throw const ValidationException(
+        'Redirect paths must start with "/" and contain no spaces.',
+      );
     }
     if (from == to) {
       throw const ValidationException('A redirect cannot point at itself.');
+    }
+    if (statusCode != 301 && statusCode != 302 && statusCode != 307) {
+      throw const ValidationException('Status code must be 301, 302 or 307.');
     }
     if (_storage.any((r) => r.oldPath == from)) return null;
     final created = RedirectModel(

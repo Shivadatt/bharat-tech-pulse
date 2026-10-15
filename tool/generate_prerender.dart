@@ -9,8 +9,10 @@
 // WHAT IT DOES: reads the deterministic editorial seed
 // (supabase/migrations/006_seed_data.sql — NO network, NO database), rebuilds the
 // very same [ArticleModel]/[CategoryModel] objects the app hydrates from
-// Supabase, and emits a static HTML shell per published article and per category
-// under build/web/. All head metadata comes from [SeoMeta] — the same pure
+// Supabase, and emits a static HTML shell per published article, per category,
+// per indexable static page (the `SeoMeta.staticPages` constants that
+// `app_pages.dart` feeds into its `PageSeoInit` widgets) and per author profile.
+// All head metadata comes from [SeoMeta] — the same pure
 // calculator `SeoService` uses at runtime — so a JS and a no-JS crawler cannot
 // be shown different titles, canonicals or structured data.
 //
@@ -48,7 +50,7 @@ void main(List<String> args) {
   final dir = Directory(outRoot);
   if (!dir.existsSync()) dir.createSync(recursive: true);
 
-  var articles = 0, cats = 0;
+  var articles = 0, cats = 0, statics = 0, authors = 0;
   for (final article in data.publishedPosts) {
     final html = buildArticleShell(article);
     final d = Directory('$outRoot/article/${article.slug}')
@@ -64,10 +66,31 @@ void main(List<String> args) {
     cats++;
   }
 
+  // Static pages are indexable (they are in web/sitemap.xml), so each needs
+  // its own shell — otherwise a no-JS crawler gets web/index.html and sees
+  // the HOME title, og:image and canonical on six wrong URLs.
+  for (final page in SeoMeta.staticPages) {
+    final html = buildStaticPageShell(page);
+    final d = Directory('$outRoot${page.path}')..createSync(recursive: true);
+    File('${d.path}/index.html').writeAsStringSync(html);
+    statics++;
+  }
+
+  // Author profiles: same title/bio/canonical that AuthorController writes at
+  // runtime, now baked from the seed rows the prerenderer already parses.
+  for (final author in data.authors) {
+    if (author.slug.isEmpty) continue;
+    final html = buildAuthorShell(author);
+    final d = Directory('$outRoot/author/${author.slug}')
+      ..createSync(recursive: true);
+    File('${d.path}/index.html').writeAsStringSync(html);
+    authors++;
+  }
+
   _spotCheckSitemap(data.publishedPosts);
 
-  stdout.writeln(
-      'Prerendered $articles article shells and $cats category shells into $outRoot/');
+  stdout.writeln('Prerendered $articles article shells, $cats category shells, '
+      '$statics static-page shells and $authors author shells into $outRoot/');
 }
 
 String? _flag(List<String> args, String name) {
@@ -320,6 +343,20 @@ String buildCategoryShell(CategoryModel cat) {
   return _page(meta: meta, bodyHtml: '');
 }
 
+/// Crawler shell for one static page, built from the [StaticPageSeo] constant
+/// that `app_pages.dart` also feeds to its `PageSeoInit` — one source, so the
+/// shell cannot drift from the runtime tags.
+String buildStaticPageShell(StaticPageSeo page) {
+  final meta = SeoMeta.forStaticPage(page);
+  return _page(meta: meta, bodyHtml: '');
+}
+
+/// Crawler shell for one author profile (`/author/<slug>`).
+String buildAuthorShell(AuthorModel author) {
+  final meta = SeoMeta.forAuthor(author);
+  return _page(meta: meta, bodyHtml: '');
+}
+
 String _page({
   required SeoMeta meta,
   String bodyHtml = '',
@@ -334,19 +371,29 @@ String _page({
     ..writeln('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
     ..writeln('<title>${esc(meta.title)}</title>')
     ..writeln('<meta name="description" content="${esc(meta.description)}">')
-    ..writeln('<meta name="robots" content="${esc(meta.robots)}">')
-    ..writeln('<link rel="canonical" href="${esc(meta.canonicalUrl)}">')
+    ..writeln('<meta name="robots" content="${esc(meta.robots)}">');
+
+  // An empty canonicalUrl is SeoMeta's "suppress the tag" signal (noindex
+  // routes with no declared path) — never write `href=""` or the root.
+  if (meta.canonicalUrl.isNotEmpty) {
+    buf.writeln('<link rel="canonical" href="${esc(meta.canonicalUrl)}">');
+  }
+
+  buf
     ..writeln('<meta property="og:type" content="${esc(meta.ogType)}">')
     ..writeln('<meta property="og:site_name" content="${esc(SiteConfig.siteName)}">')
-    ..writeln('<meta property="og:title" content="${esc(meta.title)}">')
-    ..writeln('<meta property="og:description" content="${esc(meta.description)}">')
-    ..writeln('<meta property="og:url" content="${esc(meta.canonicalUrl)}">')
+    ..writeln('<meta property="og:title" content="${esc(meta.ogTitle)}">')
+    ..writeln('<meta property="og:description" content="${esc(meta.ogDescription)}">');
+  if (meta.canonicalUrl.isNotEmpty) {
+    buf.writeln('<meta property="og:url" content="${esc(meta.canonicalUrl)}">');
+  }
+  buf
     ..writeln('<meta property="og:image" content="${esc(meta.ogImage)}">')
     ..writeln('<meta property="og:locale" content="en_IN">')
     ..writeln('<meta name="twitter:card" content="summary_large_image">')
     ..writeln('<meta name="twitter:site" content="${esc(SiteConfig.twitterHandle)}">')
-    ..writeln('<meta name="twitter:title" content="${esc(meta.title)}">')
-    ..writeln('<meta name="twitter:description" content="${esc(meta.description)}">')
+    ..writeln('<meta name="twitter:title" content="${esc(meta.ogTitle)}">')
+    ..writeln('<meta name="twitter:description" content="${esc(meta.ogDescription)}">')
     ..writeln('<meta name="twitter:image" content="${esc(meta.ogImage)}">');
 
   meta.properties.forEach(

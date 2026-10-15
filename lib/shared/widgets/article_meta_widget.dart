@@ -46,9 +46,11 @@ class ArticleMetaWidget extends StatelessWidget {
           children: [
             Icon(Icons.schedule_rounded, size: 13, color: muted),
             const SizedBox(width: 4),
-            Text(
-              '$readingTimeMinutes min read',
-              style: theme.textTheme.bodySmall,
+            Flexible(
+              child: Text(
+                '$readingTimeMinutes min read',
+                style: theme.textTheme.bodySmall,
+              ),
             ),
           ],
         ),

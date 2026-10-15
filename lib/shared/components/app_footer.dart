@@ -241,10 +241,15 @@ class _FooterLink extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () => Get.toNamed(route),
+    return InkWell(
+      onTap: () => Get.toNamed(route),
+      // A bare Text gives a ~20px tap box, under this app's own 40px mobile
+      // touch minimum (see share_buttons_widget.dart). The spacing has to sit
+      // INSIDE the InkWell to be part of the hit box — the old EdgeInsets.only
+      // (bottom: 8) wrapped the InkWell from outside, so it never grew the
+      // tappable area.
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
         child: Text(
           label,
           style: theme.textTheme.bodyMedium?.copyWith(

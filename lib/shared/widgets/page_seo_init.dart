@@ -11,6 +11,12 @@ class PageSeoInit extends StatefulWidget {
   final String title;
   final String description;
   final String? canonicalPath;
+
+  /// `robots` meta value for this route. The 404 page must pass
+  /// `noindex, follow`; without it this widget's post-frame re-assert would
+  /// overwrite the `noindex` that `main.dart` writes on a cold-boot deep link
+  /// and make every mistyped URL indexable.
+  final String robots;
   final Widget child;
 
   const PageSeoInit({
@@ -18,6 +24,7 @@ class PageSeoInit extends StatefulWidget {
     required this.title,
     required this.description,
     this.canonicalPath,
+    this.robots = 'index, follow',
     required this.child,
   });
 
@@ -41,6 +48,7 @@ class _PageSeoInitState extends State<PageSeoInit> {
       title: widget.title,
       description: widget.description,
       canonicalPath: widget.canonicalPath,
+      robots: widget.robots,
     );
   }
 

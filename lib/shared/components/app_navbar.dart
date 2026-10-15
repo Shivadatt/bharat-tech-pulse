@@ -80,84 +80,104 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildDesktopNavbar(
       BuildContext context, ThemeData theme, ThemeController themeController) {
+    // Brand + 5 links + More + 2 icons measure ~850-950px intrinsic against
+    // ~984px available at exactly 1024px, and text scale >= 1.25 tips that Row
+    // into overflow. The nav group therefore lives in a horizontally
+    // scrollable flexible slot: it can never overflow, and the action icons
+    // stay pinned to the right edge.
     return Row(
       children: [
         _buildBrandLogo(context, theme),
         const SizedBox(width: 32),
-        // Primary Navigation Items
-        _NavLink(label: 'AI & Tools', route: '/ai/'),
-        _NavLink(label: 'Smartphones', route: '/smartphones/'),
-        _NavLink(label: 'Apps', route: '/apps/'),
-        _NavLink(label: 'How-To', route: '/how-to/'),
-        _NavLink(label: 'Tech Updates', route: '/tech-news/'),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Primary Navigation Items
+                      _NavLink(label: 'AI & Tools', route: '/ai/'),
+                      _NavLink(label: 'Smartphones', route: '/smartphones/'),
+                      _NavLink(label: 'Apps', route: '/apps/'),
+                      _NavLink(label: 'How-To', route: '/how-to/'),
+                      _NavLink(label: 'Tech Updates', route: '/tech-news/'),
 
-        // More Dropdown Menu
-        PopupMenuButton<String>(
-          tooltip: 'More categories & info',
-          onSelected: (route) => Get.toNamed(route),
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: '/comparisons/',
-              child: Text('Comparisons'),
-            ),
-            const PopupMenuItem(
-              value: '/cyber-safety/',
-              child: Text('Cyber Safety'),
-            ),
-            const PopupMenuItem(
-              value: '/buying-guides/',
-              child: Text('Buying Guides'),
-            ),
-            const PopupMenuDivider(),
-            const PopupMenuItem(
-              value: '/about',
-              child: Text('About Us'),
-            ),
-            const PopupMenuItem(
-              value: '/contact',
-              child: Text('Contact'),
-            ),
-          ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'More',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+                      // More Dropdown Menu
+                      PopupMenuButton<String>(
+                        tooltip: 'More categories & info',
+                        onSelected: (route) => Get.toNamed(route),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: '/comparisons/',
+                            child: Text('Comparisons'),
+                          ),
+                          const PopupMenuItem(
+                            value: '/cyber-safety/',
+                            child: Text('Cyber Safety'),
+                          ),
+                          const PopupMenuItem(
+                            value: '/buying-guides/',
+                            child: Text('Buying Guides'),
+                          ),
+                          const PopupMenuDivider(),
+                          const PopupMenuItem(
+                            value: '/about',
+                            child: Text('About Us'),
+                          ),
+                          const PopupMenuItem(
+                            value: '/contact',
+                            child: Text('Contact'),
+                          ),
+                        ],
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'More',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-              ],
-            ),
+              ),
+
+              // Search Action
+              IconButton(
+                tooltip: 'Search Bharat Tech Pulse',
+                icon: const Icon(Icons.search_rounded, size: 20),
+                onPressed: () => Get.toNamed('/search'),
+              ),
+              const SizedBox(width: 8),
+
+              // Theme Toggle
+              Obx(() {
+                final isDark = themeController.isDarkMode;
+                return IconButton(
+                  tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+                  icon: Icon(
+                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                    size: 20,
+                  ),
+                  onPressed: themeController.toggleTheme,
+                );
+              }),
+            ],
           ),
         ),
-
-        const Spacer(),
-
-        // Search Action
-        IconButton(
-          tooltip: 'Search Bharat Tech Pulse',
-          icon: const Icon(Icons.search_rounded, size: 20),
-          onPressed: () => Get.toNamed('/search'),
-        ),
-        const SizedBox(width: 8),
-
-        // Theme Toggle
-        Obx(() {
-          final isDark = themeController.isDarkMode;
-          return IconButton(
-            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              size: 20,
-            ),
-            onPressed: themeController.toggleTheme,
-          );
-        }),
       ],
     );
   }
@@ -186,6 +206,7 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
+              tooltip: 'Search Bharat Tech Pulse',
               style: compactIcons,
               icon: const Icon(Icons.search_rounded, size: 20),
               onPressed: () => Get.toNamed('/search'),
@@ -193,6 +214,7 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
             Obx(() {
               final isDark = themeController.isDarkMode;
               return IconButton(
+                tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
                 style: compactIcons,
                 icon: Icon(
                   isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
@@ -202,6 +224,7 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
               );
             }),
             IconButton(
+              tooltip: 'Open Menu',
               style: compactIcons,
               icon: const Icon(Icons.menu_rounded, size: 20),
               onPressed: () {

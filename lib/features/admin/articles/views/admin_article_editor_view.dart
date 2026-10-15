@@ -46,19 +46,28 @@ class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
             ? const []
             : isDesktop
                 ? [
+                    // isSaving is tracked by the surrounding Obx; keeping the
+                    // buttons live during a save would write two rows on a
+                    // double click.
                     OutlinedButton(
-                      onPressed: () => controller.saveArticle(newStatus: 'draft'),
+                      onPressed: controller.isSaving.value
+                          ? null
+                          : () => controller.saveArticle(newStatus: 'draft'),
                       child: const Text('Save Draft'),
                     ),
                     if (canPublish) ...[
                       const SizedBox(width: 8),
                       OutlinedButton(
-                        onPressed: () => controller.saveArticle(newStatus: 'scheduled'),
+                        onPressed: controller.isSaving.value
+                            ? null
+                            : () => controller.saveArticle(newStatus: 'scheduled'),
                         child: const Text('Schedule'),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
-                        onPressed: () => controller.saveArticle(newStatus: 'published'),
+                        onPressed: controller.isSaving.value
+                            ? null
+                            : () => controller.saveArticle(newStatus: 'published'),
                         icon: const Icon(Icons.publish_rounded, size: 16),
                         label: const Text('Publish Now'),
                       ),
@@ -207,31 +216,56 @@ class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
                     const SizedBox(height: 16),
 
                     // Featured Image & Alt Text
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
+                    // Two Expanded fields side by side leave each ~100px at
+                    // 320px, which wraps the floating labels to 3 lines and
+                    // clips the hints; stack them on small mobile.
+                    if (ResponsiveBreakpoints.isMobileSmall(context))
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
                             controller: controller.featuredImageController,
                             decoration: const InputDecoration(
                               labelText: 'Featured Image URL',
                               hintText: 'https://...',
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
+                          const SizedBox(height: 16),
+                          TextField(
                             controller: controller.altTextController,
                             decoration: const InputDecoration(
                               labelText: 'Accessibility Alt Text',
                               hintText: 'Describe image for screen readers...',
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: controller.featuredImageController,
+                              decoration: const InputDecoration(
+                                labelText: 'Featured Image URL',
+                                hintText: 'https://...',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              controller: controller.altTextController,
+                              decoration: const InputDecoration(
+                                labelText: 'Accessibility Alt Text',
+                                hintText: 'Describe image for screen readers...',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -249,9 +283,15 @@ class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
                       children: [
                         const Icon(Icons.travel_explore_rounded, color: Colors.cyan, size: 20),
                         const SizedBox(width: 8),
-                        Text(
-                          'SEO & Social Meta Configuration',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        // Beside the icon this title can reach the 320px admin
+                        // body width, so it has to ellipsize.
+                        Flexible(
+                          child: Text(
+                            'SEO & Social Meta Configuration',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -274,23 +314,41 @@ class _AdminArticleEditorViewState extends State<AdminArticleEditorView> {
                     ),
                     const SizedBox(height: 16),
 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
+                    // OG Title & OG Image URL — same small-screen stacking as
+                    // the featured image fields above.
+                    if (ResponsiveBreakpoints.isMobileSmall(context))
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
                             controller: controller.ogTitleController,
                             decoration: const InputDecoration(labelText: 'Open Graph Title'),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextField(
+                          const SizedBox(height: 16),
+                          TextField(
                             controller: controller.ogImageController,
                             decoration: const InputDecoration(labelText: 'Open Graph Image URL'),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller.ogTitleController,
+                              decoration: const InputDecoration(labelText: 'Open Graph Title'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: controller.ogImageController,
+                              decoration: const InputDecoration(labelText: 'Open Graph Image URL'),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),

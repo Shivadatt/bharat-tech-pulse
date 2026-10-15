@@ -27,9 +27,12 @@ class BharatTechApp extends StatelessWidget {
           // PageSeoInit (not a middleware) because GetX skips middleware on
           // the initial deep link, and boots home beneath the unknown route —
           // initState here runs after HomeController and wins the title.
+          // No canonicalPath: SeoMeta.page turns "noindex + no path" into an
+          // omitted canonical, so a soft-404 never claims the homepage URL.
           page: () => PageSeoInit(
             title: 'Page Not Found',
             description: SiteConfig.description,
+            robots: 'noindex, follow',
             child: const NotFoundView(),
           ),
         ),

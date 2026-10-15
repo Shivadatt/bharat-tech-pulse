@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../../../core/errors/app_exceptions.dart';
 import '../../../core/platform/browser_path.dart';
 import '../../../core/seo/seo_service.dart';
 import '../../../data/models/article_model.dart';
@@ -73,7 +74,10 @@ class HomeController extends GetxController {
       cyberSafetyArticles.assignAll(results[8] as List<ArticleModel>);
       popularArticles.assignAll(results[9] as List<ArticleModel>);
     } catch (e) {
-      errorMessage.value = e.toString();
+      // Never `e.toString()`: an `AppException` renders as
+      // `AppException(code: 42501, …)` straight into the visitor's ErrorState.
+      errorMessage.value =
+          e is AppException ? e.message : 'We could not load the homepage.';
     } finally {
       isLoading.value = false;
     }

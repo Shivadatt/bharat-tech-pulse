@@ -23,19 +23,30 @@ class MockCategoryRepository implements CategoryRepository {
   @override
   Future<List<CategoryModel>> getCategories() async {
     await Future.delayed(const Duration(milliseconds: 30));
-    return List.unmodifiable(_categories);
+    // Public reads hide archived rows and use the same ordering as the
+    // Supabase implementation: is_active = true, sort_order ascending.
+    final visible = _categories.where((c) => c.isActive).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return List.unmodifiable(visible);
   }
 
   @override
   Future<List<CategoryModel>> getCategoriesForAdmin() async {
     await Future.delayed(const Duration(milliseconds: 30));
-    return List.unmodifiable(_categories);
+    // Admin reads keep archived rows (no isActive filter) but use the same
+    // sort_order ordering as Supabase.
+    final sorted = List<CategoryModel>.from(_categories)
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return List.unmodifiable(sorted);
   }
 
   @override
   Future<List<AuthorModel>> getAuthorsForAdmin() async {
     await Future.delayed(const Duration(milliseconds: 30));
-    return List.unmodifiable(_authors);
+    // Unfiltered like the Supabase admin read, but ordered by name to match.
+    final sorted = List<AuthorModel>.from(_authors)
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return List.unmodifiable(sorted);
   }
 
   @override
@@ -51,7 +62,11 @@ class MockCategoryRepository implements CategoryRepository {
   @override
   Future<List<AuthorModel>> getAuthors() async {
     await Future.delayed(const Duration(milliseconds: 30));
-    return List.unmodifiable(_authors);
+    // Mirrors the Supabase public read: is_active = true, name ascending, so
+    // archived bylines never surface on the public author list in mock mode.
+    final visible = _authors.where((a) => a.isActive).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return List.unmodifiable(visible);
   }
 
   @override
@@ -67,7 +82,10 @@ class MockCategoryRepository implements CategoryRepository {
   @override
   Future<List<TagModel>> getTags() async {
     await Future.delayed(const Duration(milliseconds: 30));
-    return List.unmodifiable(_tags);
+    // Supabase orders the tag list by name; mirror it so chip order matches.
+    final sorted = List<TagModel>.from(_tags)
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return List.unmodifiable(sorted);
   }
 
   @override

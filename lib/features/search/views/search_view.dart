@@ -57,6 +57,7 @@ class SearchView extends GetView<SearchPageController> {
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.clear_rounded),
+                      tooltip: 'Clear search',
                       onPressed: () {
                         controller.searchController.clear();
                       },
@@ -75,7 +76,7 @@ class SearchView extends GetView<SearchPageController> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SizedBox(height: 56, child: field),
+                      field,
                       const SizedBox(height: 12),
                       button,
                     ],
@@ -112,12 +113,12 @@ class SearchView extends GetView<SearchPageController> {
               }
 
               if (!controller.hasSearched.value) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 48),
+                    padding: const EdgeInsets.symmetric(vertical: 48),
                     child: Text(
                       'Type a keyword above to find relevant stories.',
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: theme.textTheme.bodySmall?.color),
                     ),
                   ),
                 );

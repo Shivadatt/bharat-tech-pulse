@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../../core/seo/seo_meta.dart';
 import '../../core/supabase/role_permissions.dart';
 import '../../features/admin/analytics/controllers/admin_analytics_controller.dart';
 import '../../features/admin/analytics/views/admin_analytics_view.dart';
@@ -140,14 +141,14 @@ class AppPages {
     ),
     // Static pages carry their SEO meta here (not in a GetMiddleware) because
     // GetX skips middleware on the initial deep-linked route — the visit type
-    // crawlers make. PageSeoInit's initState runs on every mount.
+    // crawlers make. PageSeoInit's initState runs on every mount. The strings
+    // live in `SeoMeta` so the prerenderer's crawler shells stay identical.
     GetPage(
       name: AppRoutes.about,
       page: () => PageSeoInit(
-        title: 'About Us',
-        description:
-            'Meet the Bharat Tech Pulse editorial team and our mission of jargon-free, high-integrity technology journalism for India.',
-        canonicalPath: AppRoutes.about,
+        title: SeoMeta.about.title,
+        description: SeoMeta.about.description,
+        canonicalPath: SeoMeta.about.path,
         child: const AboutView(),
       ),
       transition: Transition.fadeIn,
@@ -155,10 +156,9 @@ class AppPages {
     GetPage(
       name: AppRoutes.contact,
       page: () => PageSeoInit(
-        title: 'Contact Us',
-        description:
-            'Get in touch with the Bharat Tech Pulse team for tips, corrections, feedback, and partnership enquiries.',
-        canonicalPath: AppRoutes.contact,
+        title: SeoMeta.contact.title,
+        description: SeoMeta.contact.description,
+        canonicalPath: SeoMeta.contact.path,
         child: const ContactView(),
       ),
       transition: Transition.fadeIn,
@@ -166,10 +166,9 @@ class AppPages {
     GetPage(
       name: AppRoutes.editorialPolicy,
       page: () => PageSeoInit(
-        title: 'Editorial Policy',
-        description:
-            'How Bharat Tech Pulse tests, reviews, and fact-checks technology for Indian readers.',
-        canonicalPath: AppRoutes.editorialPolicy,
+        title: SeoMeta.editorialPolicy.title,
+        description: SeoMeta.editorialPolicy.description,
+        canonicalPath: SeoMeta.editorialPolicy.path,
         child: const EditorialPolicyView(),
       ),
       transition: Transition.fadeIn,
@@ -177,10 +176,9 @@ class AppPages {
     GetPage(
       name: AppRoutes.privacyPolicy,
       page: () => PageSeoInit(
-        title: 'Privacy Policy',
-        description:
-            'How Bharat Tech Pulse collects, uses, and protects visitor information.',
-        canonicalPath: AppRoutes.privacyPolicy,
+        title: SeoMeta.privacyPolicy.title,
+        description: SeoMeta.privacyPolicy.description,
+        canonicalPath: SeoMeta.privacyPolicy.path,
         child: const PrivacyPolicyView(),
       ),
       transition: Transition.fadeIn,
@@ -188,9 +186,9 @@ class AppPages {
     GetPage(
       name: AppRoutes.terms,
       page: () => PageSeoInit(
-        title: 'Terms of Use',
-        description: 'Terms governing the use of the Bharat Tech Pulse website.',
-        canonicalPath: AppRoutes.terms,
+        title: SeoMeta.terms.title,
+        description: SeoMeta.terms.description,
+        canonicalPath: SeoMeta.terms.path,
         child: const TermsView(),
       ),
       transition: Transition.fadeIn,
@@ -198,19 +196,21 @@ class AppPages {
     GetPage(
       name: AppRoutes.disclaimer,
       page: () => PageSeoInit(
-        title: 'Disclaimer',
-        description:
-            'Editorial, affiliate, and accuracy disclaimers for Bharat Tech Pulse content.',
-        canonicalPath: AppRoutes.disclaimer,
+        title: SeoMeta.disclaimer.title,
+        description: SeoMeta.disclaimer.description,
+        canonicalPath: SeoMeta.disclaimer.path,
         child: const DisclaimerView(),
       ),
       transition: Transition.fadeIn,
     ),
+    // No canonicalPath on purpose: SeoMeta.page turns "noindex + no path" into
+    // an omitted canonical instead of pointing every soft-404 at the homepage.
     GetPage(
       name: AppRoutes.notFound,
       page: () => PageSeoInit(
         title: 'Page Not Found',
         description: SiteConfig.description,
+        robots: 'noindex, follow',
         child: const NotFoundView(),
       ),
       transition: Transition.fadeIn,
@@ -219,41 +219,81 @@ class AppPages {
     // ----------------------------------------------------
     // Admin Routes
     // ----------------------------------------------------
+    // Every admin page is wrapped in PageSeoInit with `noindex, follow`:
+    // without it a client-side visit keeps the previously viewed article's
+    // title/canonical and `index, follow`. No canonicalPath is supplied, so
+    // SeoMeta.page emits no canonical for these noindex routes instead of
+    // falsely declaring the homepage as their canonical.
     GetPage(
       name: AppRoutes.admin,
-      page: () => const AdminDashboardView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Dashboard',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminDashboardView(),
+      ),
       binding: AdminDashboardBinding(),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminLogin,
-      page: () => const AdminLoginView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Sign In',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminLoginView(),
+      ),
       binding: AdminAuthBinding(),
     ),
     GetPage(
       name: AppRoutes.adminDashboard,
-      page: () => const AdminDashboardView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Dashboard',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminDashboardView(),
+      ),
       binding: AdminDashboardBinding(),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminArticles,
-      page: () => const AdminArticlesListView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Articles',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminArticlesListView(),
+      ),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminArticleCreate,
-      page: () => const AdminArticleEditorView(),
+      page: () => PageSeoInit(
+        title: 'Admin — New Article',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminArticleEditorView(),
+      ),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminArticleEdit,
-      page: () => const AdminArticleEditorView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Edit Article',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminArticleEditorView(),
+      ),
       middlewares: [AdminAuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.adminCategories,
-      page: () => const AdminCategoriesView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Categories',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminCategoriesView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AdminCategoriesController(
             categoryRepository: Get.find<CategoryRepository>()));
@@ -264,7 +304,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminTags,
-      page: () => const AdminTagsView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Tags',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminTagsView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() =>
             AdminTagsController(categoryRepository: Get.find<CategoryRepository>()));
@@ -275,7 +320,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminAuthors,
-      page: () => const AdminAuthorsView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Authors',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminAuthorsView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AdminAuthorsController(
             categoryRepository: Get.find<CategoryRepository>()));
@@ -287,7 +337,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminMedia,
-      page: () => const AdminMediaView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Media',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminMediaView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(
             () => AdminMediaController(mediaRepository: Get.find<MediaRepository>()));
@@ -296,7 +351,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminTrending,
-      page: () => const AdminTrendingView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Trending',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminTrendingView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AdminTrendingController(
             postAdminRepository: Get.find<PostAdminRepository>()));
@@ -309,7 +369,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminScheduled,
-      page: () => const AdminScheduledView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Scheduled',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminScheduledView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AdminScheduledController(
             postAdminRepository: Get.find<PostAdminRepository>()));
@@ -320,7 +385,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminSeo,
-      page: () => const AdminSeoView(),
+      page: () => PageSeoInit(
+        title: 'Admin — SEO',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminSeoView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AdminSeoController(
             siteSettingsRepository: Get.find<SiteSettingsRepository>()));
@@ -332,7 +402,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminAnalytics,
-      page: () => const AdminAnalyticsView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Analytics',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminAnalyticsView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AdminAnalyticsController(
             analyticsRepository: Get.find<AnalyticsRepository>()));
@@ -345,7 +420,12 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.adminSettings,
-      page: () => const AdminSettingsView(),
+      page: () => PageSeoInit(
+        title: 'Admin — Settings',
+        description: 'Private admin area of Bharat Tech Pulse.',
+        robots: 'noindex, follow',
+        child: const AdminSettingsView(),
+      ),
       binding: BindingsBuilder(() {
         Get.lazyPut(() => AdminSettingsController(
             siteSettingsRepository: Get.find<SiteSettingsRepository>()));

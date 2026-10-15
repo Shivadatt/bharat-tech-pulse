@@ -23,8 +23,23 @@ import '../../../shared/widgets/share_buttons_widget.dart';
 import '../../../shared/widgets/trending_card.dart';
 import '../controllers/article_controller.dart';
 
-class ArticleView extends GetView<ArticleController> {
+class ArticleView extends StatefulWidget {
   const ArticleView({super.key});
+
+  @override
+  State<ArticleView> createState() => _ArticleViewState();
+}
+
+class _ArticleViewState extends State<ArticleView> {
+  ArticleController get controller => Get.find<ArticleController>();
+
+  @override
+  void initState() {
+    super.initState();
+    // GetX keeps the type-keyed controller alive across article routes, so a
+    // reader moving article-to-article gets a fresh widget on a stale instance.
+    controller.ensureCurrentRouteLoaded();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +157,10 @@ class ArticleView extends GetView<ArticleController> {
                         child: ArticleThumbnail(
                           url: article.featuredImage,
                           fallbackIcon: Icons.image,
+                          // Without a decode size a 5000px-wide source is
+                          // rasterised at native resolution on every article.
+                          cacheWidth: 1200,
+                          semanticLabel: article.title,
                         ),
                       ),
                     ),
@@ -302,11 +321,15 @@ class _KeyTakeawaysBox extends StatelessWidget {
               Icon(Icons.lightbulb_outline_rounded,
                   color: theme.colorScheme.primary, size: 20),
               const SizedBox(width: 8),
-              Text(
-                'Key Takeaways',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
+              Expanded(
+                child: Text(
+                  'Key Takeaways',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ),
             ],
@@ -347,6 +370,11 @@ class _ArticleBodyContent extends StatelessWidget {
   const _ArticleBodyContent({required this.content});
 
   static final RegExp _numberedLine = RegExp(r'^\d+\.\s+');
+  static final RegExp _bulletLine = RegExp(r'^[-*]\s+(.+)$');
+
+  /// Paired `**bold**` and `` `code` `` markers in one pass; anything that does
+  /// not match stays literal, mirroring the prerenderer's `renderInline`.
+  static final RegExp _inlineMarkers = RegExp(r'\*\*(.+?)\*\*|`([^`]+)`');
 
   @override
   Widget build(BuildContext context) {
@@ -355,64 +383,129 @@ class _ArticleBodyContent extends StatelessWidget {
       height: 1.8,
       fontSize: 16.5,
     );
-    final paragraphs = content.split('\n\n');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: paragraphs.map((p) {
+    // Fenced code blocks survive paragraph splitting: odd segments of a
+    // ``` split are code, even segments keep the normal block rules. A final
+    // odd segment means the fence was never closed, so it stays plain text
+    // rather than being rendered as a code panel.
+    final normalized = content.replaceAll('\r\n', '\n');
+    final segments = normalized.split('```');
+    final blocks = <Widget>[];
+    for (var i = 0; i < segments.length; i++) {
+      if (i.isOdd && i < segments.length - 1) {
+        blocks.add(_buildCodeBlock(context, segments[i]));
+        continue;
+      }
+      for (final p in segments[i].split('\n\n')) {
         final trimmed = p.trim();
-        if (trimmed.startsWith('### ')) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 24, bottom: 12),
-            child: Text(
-              trimmed.substring(4),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.2,
-              ),
-            ),
-          );
-        } else if (trimmed.startsWith('## ')) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 28, bottom: 14),
-            child: Text(
-              trimmed.substring(3),
-              style: theme.textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          );
-        } else {
-          final lines = trimmed.split('\n');
-          final isNumberedList =
-              lines.every((l) => _numberedLine.hasMatch(l.trim()));
+        if (trimmed.isEmpty) continue;
+        blocks.add(_buildBlock(context, trimmed, theme, bodyStyle));
+      }
+    }
 
-          if (isNumberedList) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final line in lines)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _buildNumberedLine(line.trim(), bodyStyle),
-                    ),
-                ],
-              ),
-            );
-          }
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _buildInlineText(trimmed, bodyStyle),
-          );
-        }
-      }).toList(),
+    // CanvasKit paints text to a canvas, so without a SelectionArea bound of
+    // an article on web cannot highlight or copy a passage.
+    return SelectionArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: blocks,
+      ),
     );
   }
 
-  Widget _buildNumberedLine(String line, TextStyle? style) {
+  Widget _buildBlock(
+    BuildContext context,
+    String trimmed,
+    ThemeData theme,
+    TextStyle? bodyStyle,
+  ) {
+    if (trimmed.startsWith('### ')) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24, bottom: 12),
+        child: Text(
+          trimmed.substring(4),
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.2,
+          ),
+        ),
+      );
+    } else if (trimmed.startsWith('## ')) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 28, bottom: 14),
+        child: Text(
+          trimmed.substring(3),
+          style: theme.textTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    } else if (trimmed.startsWith('# ')) {
+      // The prerenderer maps a lone `#` to a section heading too; without this
+      // branch the app would print the literal marker and diverge from it.
+      return Padding(
+        padding: const EdgeInsets.only(top: 28, bottom: 14),
+        child: Text(
+          trimmed.substring(2),
+          style: theme.textTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    final lines = trimmed.split('\n');
+    final isNumberedList =
+        lines.every((l) => _numberedLine.hasMatch(l.trim()));
+
+    if (isNumberedList) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final line in lines)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildNumberedLine(context, line.trim(), bodyStyle),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Match the prerenderer: a bullet list only when every line of a multi-line
+    // block starts with `- ` or `* `; a stray single bullet stays a paragraph.
+    final isBulletList = lines.length > 1 &&
+        lines.every((l) => _bulletLine.hasMatch(l.trim()));
+
+    if (isBulletList) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final line in lines)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildBulletLine(context, line.trim(), theme, bodyStyle),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _buildInlineText(context, trimmed, bodyStyle),
+    );
+  }
+
+  Widget _buildNumberedLine(
+    BuildContext context,
+    String line,
+    TextStyle? style,
+  ) {
     final match = _numberedLine.firstMatch(line);
     final marker = match?.group(0) ?? '';
     final rest = marker.isEmpty ? line : line.substring(marker.length);
@@ -428,30 +521,120 @@ class _ArticleBodyContent extends StatelessWidget {
             style: style?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
-        Expanded(child: _buildInlineText(rest, style)),
+        Expanded(child: _buildInlineText(context, rest, style)),
       ],
     );
   }
 
-  /// Renders **bold** spans without a markdown package; unpaired markers
-  /// render as literal text.
-  Widget _buildInlineText(String text, TextStyle? style) {
-    final parts = text.split('**');
-    // An even part count means the '**' markers are unpaired — render them
-    // as literal text instead of bolding a stray tail segment.
-    if (parts.length == 1 || parts.length.isEven) {
-      return Text(text, style: style);
+  Widget _buildBulletLine(
+    BuildContext context,
+    String line,
+    ThemeData theme,
+    TextStyle? style,
+  ) {
+    final match = _bulletLine.firstMatch(line);
+    final rest = match?.group(1) ?? line;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '• ',
+          style: TextStyle(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        Expanded(child: _buildInlineText(context, rest, style)),
+      ],
+    );
+  }
+
+  /// A ``` block renders as a scrollable monospace panel: lines never wrap or
+  /// overflow the column, they scroll sideways instead.
+  Widget _buildCodeBlock(BuildContext context, String raw) {
+    final theme = Theme.of(context);
+    var body = raw;
+    // Drop the fence's info string (```json) when the first line is just a
+    // bare token, plus the single trailing newline the closing fence leaves.
+    final cut = body.indexOf('\n');
+    if (cut != -1 &&
+        RegExp(r'^[A-Za-z0-9+#._-]*$').hasMatch(body.substring(0, cut).trim())) {
+      body = body.substring(cut + 1);
+    }
+    if (body.endsWith('\n')) body = body.substring(0, body.length - 1);
+
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 4, bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Text(
+          body,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontFamilyFallback: const ['Courier New', 'Consolas'],
+            fontSize: 14,
+            height: 1.6,
+            color: theme.textTheme.bodyMedium?.color,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Renders **bold** and `code` spans without a markdown package; unpaired
+  /// markers render as literal text.
+  Widget _buildInlineText(
+    BuildContext context,
+    String text,
+    TextStyle? style,
+  ) {
+    final theme = Theme.of(context);
+    final children = <InlineSpan>[];
+    var last = 0;
+    for (final m in _inlineMarkers.allMatches(text)) {
+      if (m.start > last) {
+        children.add(TextSpan(text: text.substring(last, m.start)));
+      }
+      final bold = m.group(1);
+      if (bold != null) {
+        children.add(
+          TextSpan(
+            text: bold,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        );
+      } else {
+        children.add(TextSpan(
+          text: m.group(2),
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontFamilyFallback: const ['Courier New', 'Consolas'],
+            fontSize: 14.5,
+            backgroundColor: theme.brightness == Brightness.dark
+                ? const Color(0xFF111827)
+                : const Color(0xFFF1F5F9),
+          ),
+        ));
+      }
+      last = m.end;
+    }
+    // Nothing matched — keep the plain Text node the old renderer produced.
+    if (children.isEmpty) return Text(text, style: style);
+    if (last < text.length) {
+      children.add(TextSpan(text: text.substring(last)));
     }
     return Text.rich(
-      TextSpan(
-        children: [
-          for (var i = 0; i < parts.length; i++)
-            TextSpan(
-              text: parts[i],
-              style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
-            ),
-        ],
-      ),
+      TextSpan(children: children),
       style: style,
     );
   }
@@ -517,10 +700,14 @@ class _TocSidebarWidget extends StatelessWidget {
               Icon(Icons.format_list_bulleted_rounded,
                   size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text(
-                'Table of Contents',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Table of Contents',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],

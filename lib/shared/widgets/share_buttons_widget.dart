@@ -12,11 +12,17 @@ class ShareButtonsWidget extends StatelessWidget {
     required this.url,
   });
 
-  void _copyLink(BuildContext context) {
+  /// [via] names the destination the visitor pressed. Nothing here can open
+  /// WhatsApp or Telegram - that would mean a `url_launcher` dependency and a
+  /// popup the browser may block - so the label and the confirmation tell the
+  /// truth about what actually happened: the link is on the clipboard.
+  void _copyLink(BuildContext context, {String? via}) {
     Clipboard.setData(ClipboardData(text: url));
     Get.snackbar(
       'Link Copied',
-      'Article link copied to your clipboard!',
+      via == null
+          ? 'Article link copied to your clipboard!'
+          : 'Link copied — paste it in $via to share.',
       snackPosition: SnackPosition.BOTTOM,
       duration: const Duration(seconds: 2),
       backgroundColor: Theme.of(context).cardColor,
@@ -46,18 +52,18 @@ class ShareButtonsWidget extends StatelessWidget {
         ),
         _ShareIconButton(
           icon: Icons.chat_bubble_outline_rounded,
-          tooltip: 'Share on WhatsApp',
-          onTap: () => _copyLink(context),
+          tooltip: 'Copy link to share on WhatsApp',
+          onTap: () => _copyLink(context, via: 'WhatsApp'),
         ),
         _ShareIconButton(
           icon: Icons.send_rounded,
-          tooltip: 'Share on Telegram',
-          onTap: () => _copyLink(context),
+          tooltip: 'Copy link to share on Telegram',
+          onTap: () => _copyLink(context, via: 'Telegram'),
         ),
         _ShareIconButton(
           icon: Icons.share_rounded,
-          tooltip: 'Share',
-          onTap: () => _copyLink(context),
+          tooltip: 'Copy link to share elsewhere',
+          onTap: () => _copyLink(context, via: 'your app of choice'),
         ),
       ],
     );
