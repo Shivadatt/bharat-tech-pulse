@@ -33,6 +33,11 @@ class ArticleController extends GetxController {
   /// `article_view` beacon.
   String? _loadedSlug;
 
+  /// The slug this instance last started resolving. A view whose page object
+  /// GetX reuses for a different `:slug` URL never re-runs `initState`, so it
+  /// reconciles the route against this instead.
+  String? get loadedSlug => _loadedSlug;
+
   void ensureCurrentRouteLoaded() {
     final slug = currentSlug;
     if (slug.isNotEmpty && slug != _loadedSlug) {

@@ -33,7 +33,12 @@ void main() {
 
   testWidgets('article-to-article navigation replaces the loaded article',
       (tester) async {
-    final seeded = await MockArticleRepository().getLatestArticles(limit: 2);
+    // The mock repositories await `Future.delayed`, which inside `testWidgets`
+    // is a fake-clock timer: awaiting one before the first pump deadlocks the
+    // test body until the framework's 10-minute timeout fires. `runAsync` runs
+    // it on the real event loop.
+    final seeded = (await tester
+        .runAsync(() => MockArticleRepository().getLatestArticles(limit: 2)))!;
     expect(seeded.length, greaterThan(1));
     final first = seeded.first.slug;
     final second = seeded[1].slug;
@@ -56,7 +61,8 @@ void main() {
 
   testWidgets('author-to-author navigation replaces the loaded author',
       (tester) async {
-    final authors = await MockCategoryRepository().getAuthors();
+    final authors = (await tester
+        .runAsync(() => MockCategoryRepository().getAuthors()))!;
     expect(authors.length, greaterThan(1));
     final first = authors.first.slug;
     final second = authors[1].slug;
@@ -78,7 +84,12 @@ void main() {
 
   testWidgets('a superseded article load cannot paint over the current route',
       (tester) async {
-    final seeded = await MockArticleRepository().getLatestArticles(limit: 2);
+    // The mock repositories await `Future.delayed`, which inside `testWidgets`
+    // is a fake-clock timer: awaiting one before the first pump deadlocks the
+    // test body until the framework's 10-minute timeout fires. `runAsync` runs
+    // it on the real event loop.
+    final seeded = (await tester
+        .runAsync(() => MockArticleRepository().getLatestArticles(limit: 2)))!;
     final first = seeded.first.slug;
     final second = seeded[1].slug;
 

@@ -47,6 +47,16 @@ class _AuthorViewState extends State<AuthorView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // GetX can hand the same page object to a different `/author/:slug` URL, in
+    // which case `initState` never re-runs and the previous profile stays on
+    // screen under the new URL.
+    if (controller.currentSlug.isNotEmpty &&
+        controller.currentSlug != controller.loadedSlug) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) controller.ensureCurrentRouteLoaded();
+      });
+    }
+
     return PublicScaffold(
       body: Obx(() {
         if (controller.isLoading.value) {

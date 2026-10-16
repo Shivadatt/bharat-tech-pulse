@@ -43,6 +43,19 @@ class _ArticleViewState extends State<ArticleView> {
 
   @override
   Widget build(BuildContext context) {
+    // GetX can hand the same page object to a different `/article/:slug` URL, in
+    // which case `initState` never re-runs and the reader keeps seeing the
+    // previous article while the address bar, canonical and analytics all name
+    // the new one. Reconcile after the frame; `ensureCurrentRouteLoaded` is a
+    // no-op once this slug has started resolving, so `initState` and this path
+    // cannot double-fetch.
+    final routeSlug = controller.currentSlug;
+    if (routeSlug.isNotEmpty && routeSlug != controller.loadedSlug) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) controller.ensureCurrentRouteLoaded();
+      });
+    }
+
     return PublicScaffold(
       body: Obx(() {
         if (controller.isLoading.value) {

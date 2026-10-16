@@ -263,21 +263,25 @@ class SupabaseArticleRepository implements ArticleRepository {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  /// Posts query filtered to publicly visible articles: published with its
-  /// publish time already reached, or scheduled with a go-live time already
-  /// reached. [select] overrides the embed list (see [getArticlesByTag]).
+  /// Posts query filtered to publicly visible articles:
+  /// published, or scheduled with a go-live time already reached.
+  /// [select] overrides the embed list (see [getArticlesByTag]).
   ///
-  /// The `published_at.lte` arm matters: `006_seed_data.sql` carries a row
-  /// marked `published` with a future `published_at`, and without this bound
-  /// production surfaces it as the homepage hero while the mock repository
-  /// (which applies the same rule in `_isPubliclyVisible`) hides it.
+  /// `status = 'published'` is treated as the whole truth about visibility:
+  /// `posts.published_at` is nullable (001_initial_schema.sql), so a
+  /// `published_at.lte.now` guard here would silently hide every published row
+  /// that carries no timestamp — a worse failure than the one it prevents. The
+  /// mock repository does apply that bound in `_isPubliclyVisible`, so a row
+  /// marked published with a future `published_at` diverges dev-vs-prod; closing
+  /// it needs a data and CMS-policy decision (set `scheduled_for`, stamp
+  /// `published_at` on publish), not a client-side filter.
   dynamic _publicQuery(String siteId, {String? select}) {
     final now = DateTime.now().toUtc().toIso8601String();
     return _client
         .from('posts')
         .select(select ?? selectExpression)
         .eq('site_id', siteId)
-        .or('and(status.eq.published,published_at.lte.$now),and(status.eq.scheduled,'
+        .or('status.eq.published,and(status.eq.scheduled,'
             'scheduled_for.lte.$now)');
   }
 
