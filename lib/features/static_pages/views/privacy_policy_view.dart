@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../shared/components/breadcrumb_widget.dart';
 import '../../../shared/layouts/public_scaffold.dart';
+import '../../../shared/responsive/responsive_breakpoints.dart';
 import '../../../shared/responsive/responsive_container.dart';
 
 class PrivacyPolicyView extends StatelessWidget {
@@ -9,6 +10,7 @@ class PrivacyPolicyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final compact = ResponsiveBreakpoints.isMobileSmall(context);
 
     return PublicScaffold(
       body: ResponsiveContainer(
@@ -19,7 +21,9 @@ class PrivacyPolicyView extends StatelessWidget {
             const BreadcrumbWidget(items: [BreadcrumbItem(label: 'Privacy Policy')]),
             const SizedBox(height: 12),
             Text('Privacy Policy (DPDP Act 2023 Compliant)',
-                style: theme.textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w800)),
+                style: theme.textTheme.displayMedium?.copyWith(
+                    fontSize: compact ? 22 : null,
+                    fontWeight: FontWeight.w800)),
             const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(28),

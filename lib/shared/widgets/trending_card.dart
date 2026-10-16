@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../app/theme/theme_colors.dart';
 import '../../data/models/article_model.dart';
 import 'article_meta_widget.dart';
 
@@ -31,7 +32,9 @@ class TrendingCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
-                color: theme.colorScheme.primary.withAlpha(120),
+                // The alpha wash measured 1.80:1 on white and 2.54:1 on the
+                // dark card, under even the 3:1 large-text floor.
+                color: theme.colorScheme.primary,
                 height: 1.0,
               ),
             ),
@@ -51,7 +54,7 @@ class TrendingCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.primary,
+                        color: AppColors.linkText(theme.brightness),
                         letterSpacing: 0.5,
                       ),
                     ),

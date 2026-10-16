@@ -119,11 +119,16 @@ void main() {
       await controller.loadArticle('no-such-article-anywhere');
 
       expect(controller.errorMessage.value, 'Article not found.');
-      expect(seo.applied, hasLength(1));
-      expect(seo.applied.single.robots, 'noindex, follow');
-      expect(seo.applied.single.title, 'Article not found | Bharat Tech Pulse');
+      // The controller declares this URL un-indexable before the fetch resolves
+      // — so a failed load can never keep the SPA shell's `index, follow` —
+      // then writes the soft-404 meta. `applyMeta` overwrites the same DOM
+      // slots, so the last write is what a crawler reads.
+      expect(seo.applied, hasLength(2));
+      expect(seo.applied.first.robots, 'noindex, follow');
+      expect(seo.applied.last.robots, 'noindex, follow');
+      expect(seo.applied.last.title, 'Article not found | Bharat Tech Pulse');
       expect(
-        seo.applied.single.canonicalUrl,
+        seo.applied.last.canonicalUrl,
         endsWith('/article/no-such-article-anywhere'),
       );
     });
@@ -139,9 +144,10 @@ void main() {
       await controller.loadAuthor('not-a-real-author');
 
       expect(controller.errorMessage.value, 'Author not found.');
-      expect(seo.applied, hasLength(1));
-      expect(seo.applied.single.robots, 'noindex, follow');
-      expect(seo.applied.single.title, 'Author not found | Bharat Tech Pulse');
+      expect(seo.applied, hasLength(2));
+      expect(seo.applied.first.robots, 'noindex, follow');
+      expect(seo.applied.last.robots, 'noindex, follow');
+      expect(seo.applied.last.title, 'Author not found | Bharat Tech Pulse');
     });
 
     test('found article keeps indexable robots', () async {
@@ -159,8 +165,10 @@ void main() {
       await controller.loadArticle(slug);
 
       expect(controller.article.value, isNotNull);
-      expect(seo.applied.first.robots, contains('index'));
-      expect(seo.applied.first.robots, isNot(contains('noindex')));
+      // The pre-fetch declaration is index-less by design; what matters for a
+      // real article is the metadata that ends up in the DOM last.
+      expect(seo.applied.last.robots, contains('index'));
+      expect(seo.applied.last.robots, isNot(contains('noindex')));
     });
   });
 }

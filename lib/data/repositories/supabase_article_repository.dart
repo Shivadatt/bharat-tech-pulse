@@ -263,16 +263,21 @@ class SupabaseArticleRepository implements ArticleRepository {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  /// Posts query filtered to publicly visible articles:
-  /// published, or scheduled with a go-live time already reached.
-  /// [select] overrides the embed list (see [getArticlesByTag]).
+  /// Posts query filtered to publicly visible articles: published with its
+  /// publish time already reached, or scheduled with a go-live time already
+  /// reached. [select] overrides the embed list (see [getArticlesByTag]).
+  ///
+  /// The `published_at.lte` arm matters: `006_seed_data.sql` carries a row
+  /// marked `published` with a future `published_at`, and without this bound
+  /// production surfaces it as the homepage hero while the mock repository
+  /// (which applies the same rule in `_isPubliclyVisible`) hides it.
   dynamic _publicQuery(String siteId, {String? select}) {
     final now = DateTime.now().toUtc().toIso8601String();
     return _client
         .from('posts')
         .select(select ?? selectExpression)
         .eq('site_id', siteId)
-        .or('status.eq.published,and(status.eq.scheduled,'
+        .or('and(status.eq.published,published_at.lte.$now),and(status.eq.scheduled,'
             'scheduled_for.lte.$now)');
   }
 
@@ -507,10 +512,14 @@ class SupabaseArticleRepository implements ArticleRepository {
         // separately (AND across terms, OR across fields) keeps a legitimate
         // term like "hello,world" from being matched as the corrupted phrase
         // "hello world", while each per-term pattern stays injection-safe.
+        // Single-character leftovers are dropped: an apostrophe ("don't")
+        // splits into "don" + "t", and requiring "t" as its own term would
+        // reject an otherwise perfect match. The mock repository applies this
+        // exact rule so dev and production search agree.
         final terms = q
             .replaceAll(RegExp(r'''[,%_()*"']'''), ' ')
             .split(RegExp(r'\s+'))
-            .where((t) => t.isNotEmpty)
+            .where((t) => t.length > 1)
             .toList();
         if (terms.isEmpty) return const <ArticleModel>[];
         final siteId = await _site.siteId;

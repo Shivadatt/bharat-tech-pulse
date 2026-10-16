@@ -60,7 +60,9 @@ class SeoDom {
   static void _removeMatching(String selector) {
     final found = web.document.querySelectorAll(selector);
     for (var i = found.length - 1; i >= 0; i--) {
-      found.item(i)?.remove();
+      // querySelectors here match only <meta>/<link> elements, but NodeList.item
+      // is typed Node?, which has no remove(); cast to Element to call it.
+      (found.item(i) as web.Element?)?.remove();
     }
   }
 

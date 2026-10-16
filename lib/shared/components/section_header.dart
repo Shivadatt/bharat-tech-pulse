@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/theme/theme_colors.dart';
 import '../responsive/responsive_breakpoints.dart';
 
 class SectionHeader extends StatelessWidget {
@@ -68,12 +69,25 @@ class SectionHeader extends StatelessWidget {
             style: stackAction
                 ? TextButton.styleFrom(padding: const EdgeInsets.only(right: 12))
                 : null,
-            icon: Text(
-              actionLabel!,
-              style: TextStyle(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+            // TextButton.icon lays its children in a `MainAxisSize.min` Row, and
+            // a Row measures non-flex children with unbounded width, so this
+            // label could never shrink: at 2x text scale it needed 447px inside
+            // the 268px left over on a 320px phone and overflowed. Clamping the
+            // label itself makes it ellipsize instead, and changes nothing on
+            // any viewport where the text already fits.
+            icon: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.sizeOf(context).width * 0.55,
+              ),
+              child: Text(
+                actionLabel!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.linkText(theme.brightness),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
             ),
             label: Icon(

@@ -61,6 +61,35 @@ void main() {
       expect(results.isNotEmpty, true);
     });
 
+    test('MockArticleRepository search mirrors the production sanitizer',
+        () async {
+      final seed = await articleRepo.getLatestArticles(limit: 50);
+      final words = seed
+          .expand((a) => a.title.toLowerCase().split(RegExp(r'[^a-z]+')))
+          .where((t) => t.length > 2)
+          .toSet()
+          .toList();
+      expect(words.isNotEmpty, true, reason: 'seed needs a plain word');
+      final word = words.first;
+
+      final single = await articleRepo.searchArticles(word);
+      expect(single.any((a) => a.title.toLowerCase().contains(word)), true);
+
+      // A term nothing matches must empty the set (AND across terms); silently
+      // ignoring it would return the first term's results alone.
+      expect(await articleRepo.searchArticles('$word zzzqqxv'), isEmpty);
+
+      // PostgREST ilike metacharacters must never reach the pattern.
+      expect(await articleRepo.searchArticles('%'), isEmpty);
+      expect(await articleRepo.searchArticles(','), isEmpty);
+      expect(await articleRepo.searchArticles('_'), isEmpty);
+
+      // "word's" used to split into "word" + "s"; the one-letter leftover
+      // matched nothing, so a query with a real answer returned zero rows.
+      final possessive = await articleRepo.searchArticles("$word's");
+      expect(possessive.length, single.length);
+    });
+
     test('MockArticleRepository CRUD operations', () async {
       final newArticle = ArticleModel(
         id: 'test-crud-1',

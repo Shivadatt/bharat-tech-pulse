@@ -149,14 +149,16 @@ class MockArticleRepository implements ArticleRepository {
   Future<List<ArticleModel>> searchArticles(String query) async {
     await Future.delayed(const Duration(milliseconds: 70));
     // Mirrors the Supabase ilike search: only title/excerpt/content are
-    // searched, PostgREST filter metacharacters (`% _ , ( )`) are stripped,
-    // and every surviving term must match at least one of those fields
-    // (per-term OR across fields, AND across terms), newest first.
+    // searched, PostgREST filter metacharacters (`% _ , ( ) * " '`) are
+    // stripped, single-character leftovers are dropped ("don't" must not
+    // become the terms "don" AND "t"), every surviving term must match at
+    // least one of those fields (per-term OR across fields, AND across
+    // terms), newest first, capped at 50 rows exactly like production.
     final terms = query
         .trim()
-        .replaceAll(RegExp(r'[,%_()]'), ' ')
+        .replaceAll(RegExp(r'''[,%_()*"']'''), ' ')
         .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
+        .where((t) => t.length > 1)
         .toList();
     if (terms.isEmpty) return [];
     final results = _storage.where((a) {
@@ -172,7 +174,7 @@ class MockArticleRepository implements ArticleRepository {
       });
     }).toList()
       ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-    return results;
+    return results.take(50).toList();
   }
 
   @override

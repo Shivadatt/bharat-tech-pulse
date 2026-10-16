@@ -4,15 +4,31 @@ import '../../../data/models/author_model.dart';
 import '../../../data/repositories/category_repository.dart';
 import '../../../shared/components/breadcrumb_widget.dart';
 import '../../../shared/layouts/public_scaffold.dart';
+import '../../../shared/responsive/responsive_breakpoints.dart';
 import '../../../shared/responsive/responsive_container.dart';
+import '../../../shared/skeletons/error_state.dart';
 import '../../../shared/widgets/author_info_widget.dart';
 
-class AboutView extends StatelessWidget {
+class AboutView extends StatefulWidget {
   const AboutView({super.key});
+
+  @override
+  State<AboutView> createState() => _AboutViewState();
+}
+
+class _AboutViewState extends State<AboutView> {
+  // Held in state: as a StatelessWidget this view rebuilt the future on every
+  // frame, so the team list replayed its spinner and re-issued the request, and
+  // a failed load fell through to an empty box with no message.
+  late Future<List<AuthorModel>> _authors = _load();
+
+  Future<List<AuthorModel>> _load() =>
+      Get.find<CategoryRepository>().getAuthors();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final compact = ResponsiveBreakpoints.isMobileSmall(context);
 
     return PublicScaffold(
       body: ResponsiveContainer(
@@ -26,7 +42,10 @@ class AboutView extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'About Bharat Tech Pulse',
-              style: theme.textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: theme.textTheme.displayMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontSize: compact ? 22 : null,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -78,12 +97,19 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             FutureBuilder<List<AuthorModel>>(
-              future: Get.find<CategoryRepository>().getAuthors(),
+              future: _authors,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return ErrorState(
+                    title: 'Team Unavailable',
+                    message: 'We could not load the editorial team. Please try again.',
+                    onRetry: () => setState(() => _authors = _load()),
                   );
                 }
                 final authors = snapshot.data ?? const <AuthorModel>[];

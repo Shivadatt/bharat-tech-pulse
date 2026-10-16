@@ -95,7 +95,17 @@ void main() {
             reason: art.slug);
         expect(_meta(shell, 'name', 'twitter:image'), meta.ogImage,
             reason: art.slug);
-        expect(_meta(shell, 'property', 'og:title'), meta.title,
+        // og:title is the editor's `og_title` override, not the document title:
+        // every seeded post stores an un-branded og_title while `title` carries
+        // the "| Bharat Tech Pulse" suffix. Both renderers must ship the
+        // override, so asserting against `meta.title` pinned the wrong value.
+        expect(_meta(shell, 'property', 'og:title'), meta.ogTitle,
+            reason: art.slug);
+        expect(_meta(shell, 'name', 'twitter:title'), meta.ogTitle,
+            reason: art.slug);
+        expect(_meta(shell, 'property', 'og:description'), meta.ogDescription,
+            reason: art.slug);
+        expect(_meta(shell, 'name', 'twitter:description'), meta.ogDescription,
             reason: art.slug);
         expect(_meta(shell, 'property', 'og:type'), 'article', reason: art.slug);
 

@@ -17,14 +17,17 @@ class NotFoundView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '404',
-                style: TextStyle(
-                  fontSize: 100,
-                  fontWeight: FontWeight.w900,
-                  color: theme.colorScheme.primary,
-                  letterSpacing: -2,
-                  height: 1.0,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '404',
+                  style: TextStyle(
+                    fontSize: 100,
+                    fontWeight: FontWeight.w900,
+                    color: theme.colorScheme.primary,
+                    letterSpacing: -2,
+                    height: 1.0,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

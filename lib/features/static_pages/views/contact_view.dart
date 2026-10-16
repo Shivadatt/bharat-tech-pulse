@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../app/config/site_config.dart';
 import '../../../shared/components/breadcrumb_widget.dart';
 import '../../../shared/layouts/public_scaffold.dart';
+import '../../../shared/responsive/responsive_breakpoints.dart';
 import '../../../shared/responsive/responsive_container.dart';
 
 class ContactView extends StatefulWidget {
@@ -72,6 +73,7 @@ class _ContactViewState extends State<ContactView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final compact = ResponsiveBreakpoints.isMobileSmall(context);
 
     return PublicScaffold(
       body: ResponsiveContainer(
@@ -85,7 +87,10 @@ class _ContactViewState extends State<ContactView> {
             const SizedBox(height: 12),
             Text(
               'Contact Our Editorial Desk',
-              style: theme.textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: theme.textTheme.displayMedium?.copyWith(
+                fontSize: compact ? 22 : null,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 8),
             Text(

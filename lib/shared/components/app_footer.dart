@@ -98,10 +98,14 @@ class AppFooter extends StatelessWidget {
                     child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    SiteConfig.siteName,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      SiteConfig.siteName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],

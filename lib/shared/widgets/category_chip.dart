@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../app/theme/theme_colors.dart';
 
 class CategoryChip extends StatelessWidget {
   final String label;
@@ -23,10 +24,12 @@ class CategoryChip extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap ?? () => Get.toNamed('/$slug/'),
+        // An RLS-dropped category row yields an empty slug, and `//' is not a
+        // declared route; the chip then renders as plain, inert text.
+        onTap: onTap ?? (slug.isEmpty ? null : () => Get.toNamed('/$slug/')),
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected ? primary : primary.withAlpha(20),
             borderRadius: BorderRadius.circular(20),
@@ -42,7 +45,7 @@ class CategoryChip extends StatelessWidget {
             style: theme.textTheme.labelMedium?.copyWith(
               color: isSelected
                   ? (theme.brightness == Brightness.dark ? Colors.black : Colors.white)
-                  : primary,
+                  : AppColors.linkText(theme.brightness),
               fontWeight: FontWeight.w600,
             ),
           ),

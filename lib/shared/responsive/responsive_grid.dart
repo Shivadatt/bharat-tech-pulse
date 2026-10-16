@@ -28,7 +28,11 @@ class ResponsiveGrid extends StatelessWidget {
         final int cols;
         if (width >= 1024) {
           cols = desktopColumns;
-        } else if (width >= 650) {
+        } else if (width >= 560) {
+          // 650 here compared a *slot* width to a *screen* constant: the
+          // sidebar layout's content slot at 1024 is 1024-40-380 = 604, so the
+          // rail collapsed to one 604px card while the sections beside it
+          // showed three 315px cards.
           cols = tabletColumns;
         } else {
           cols = mobileColumns;

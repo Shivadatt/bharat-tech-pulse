@@ -71,10 +71,13 @@ class _ArticleViewState extends State<ArticleView> {
               // Breadcrumb
               BreadcrumbWidget(
                 items: [
-                  BreadcrumbItem(
-                    label: article.categoryName,
-                    route: '/${article.categorySlug}/',
-                  ),
+                  // A category row dropped by RLS leaves an empty slug, and
+                  // `//' is not a route: the crumb would navigate to the 404.
+                  if (article.categorySlug.isNotEmpty)
+                    BreadcrumbItem(
+                      label: article.categoryName,
+                      route: '/${article.categorySlug}/',
+                    ),
                   BreadcrumbItem(label: article.title),
                 ],
               ),
@@ -93,14 +96,17 @@ class _ArticleViewState extends State<ArticleView> {
                     const SizedBox(height: 14),
 
                     // H1 Title
-                    Text(
-                      article.title,
-                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                            fontSize: compact ? 24 : null,
-                            fontWeight: FontWeight.w800,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        article.title,
+                        style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                              fontSize: compact ? 24 : null,
+                              fontWeight: FontWeight.w800,
                             letterSpacing: -0.6,
                             height: 1.2,
                           ),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -130,7 +136,13 @@ class _ArticleViewState extends State<ArticleView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             InkWell(
-                              onTap: () => Get.toNamed('/author/${article.author.slug}'),
+                              // An `authors` embed dropped by RLS (archived
+                              // byline) leaves an empty slug; `/author/` is not
+                              // a cold-boot path and lands on the 404 route.
+                              onTap: article.author.slug.isEmpty
+                                  ? null
+                                  : () => Get.toNamed(
+                                      '/author/${article.author.slug}'),
                               child: Text(
                                 article.author.name,
                                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -152,15 +164,23 @@ class _ArticleViewState extends State<ArticleView> {
                     // Hero Image
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: ArticleThumbnail(
-                          url: article.featuredImage,
-                          fallbackIcon: Icons.image,
-                          // Without a decode size a 5000px-wide source is
-                          // rasterised at native resolution on every article.
-                          cacheWidth: 1200,
-                          semanticLabel: article.title,
+                      child: ConstrainedBox(
+                        // A 16:9 box sized only by column width swamps the
+                        // article in short landscape viewports; capping it at
+                        // 45% of viewport height keeps the byline on screen.
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                        ),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: ArticleThumbnail(
+                            url: article.featuredImage,
+                            fallbackIcon: Icons.image,
+                            // Without a decode size a 5000px-wide source is
+                            // rasterised at native resolution on every article.
+                            cacheWidth: 1200,
+                            semanticLabel: article.title,
+                          ),
                         ),
                       ),
                     ),
@@ -422,21 +442,27 @@ class _ArticleBodyContent extends StatelessWidget {
     if (trimmed.startsWith('### ')) {
       return Padding(
         padding: const EdgeInsets.only(top: 24, bottom: 12),
-        child: Text(
-          trimmed.substring(4),
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.2,
+        child: Semantics(
+          header: true,
+          child: Text(
+            trimmed.substring(4),
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.2,
+            ),
           ),
         ),
       );
     } else if (trimmed.startsWith('## ')) {
       return Padding(
         padding: const EdgeInsets.only(top: 28, bottom: 14),
-        child: Text(
-          trimmed.substring(3),
-          style: theme.textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.bold,
+        child: Semantics(
+          header: true,
+          child: Text(
+            trimmed.substring(3),
+            style: theme.textTheme.headlineLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       );
@@ -445,10 +471,13 @@ class _ArticleBodyContent extends StatelessWidget {
       // branch the app would print the literal marker and diverge from it.
       return Padding(
         padding: const EdgeInsets.only(top: 28, bottom: 14),
-        child: Text(
-          trimmed.substring(2),
-          style: theme.textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.bold,
+        child: Semantics(
+          header: true,
+          child: Text(
+            trimmed.substring(2),
+            style: theme.textTheme.headlineLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       );
@@ -513,14 +542,17 @@ class _ArticleBodyContent extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 34,
+        // A fixed 34px box clips two-digit markers ("10.") and anything wider
+        // under large text scales; the floor keeps single digits aligned.
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 34),
           child: Text(
             marker.trim(),
             maxLines: 1,
             style: style?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
+        const SizedBox(width: 4),
         Expanded(child: _buildInlineText(context, rest, style)),
       ],
     );

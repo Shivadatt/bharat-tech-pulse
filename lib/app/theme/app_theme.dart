@@ -22,7 +22,7 @@ class AppTheme {
         secondary: AppColors.lightSecondary,
         surface: AppColors.lightSurface,
         onSurface: AppColors.lightText,
-        error: AppColors.error,
+        error: AppColors.lightErrorText,
         outline: AppColors.lightBorder,
       ),
       cardTheme: CardThemeData(
@@ -117,7 +117,7 @@ class AppTheme {
         secondary: AppColors.darkSecondary,
         surface: AppColors.darkSurface,
         onSurface: AppColors.darkText,
-        error: AppColors.error,
+        error: AppColors.darkErrorText,
         outline: AppColors.darkBorder,
       ),
       cardTheme: CardThemeData(
@@ -157,7 +157,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.darkPrimary, width: 2),
         ),
-        hintStyle: const TextStyle(color: AppColors.darkMuted, fontSize: 14),
+        // darkMuted measured 3.73:1 on darkSurface — under AA for placeholder
+        // text, which is the only thing a user reads inside an empty field.
+        hintStyle: const TextStyle(color: AppColors.darkSecondary, fontSize: 14),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../app/theme/theme_colors.dart';
 import '../../data/models/author_model.dart';
 import 'author_avatar.dart';
 
@@ -18,7 +19,12 @@ class AuthorInfoWidget extends StatelessWidget {
     final theme = Theme.of(context);
 
     return InkWell(
-      onTap: () => Get.toNamed('/author/${author.slug}'),
+      // A byline whose author row was dropped by RLS carries slug '' and
+      // '/author/' is not a declared route; the box becomes inert instead of
+      // sending the reader to a 404 from a profile card.
+      onTap: author.slug.isEmpty
+          ? null
+          : () => Get.toNamed('/author/${author.slug}'),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -49,7 +55,7 @@ class AuthorInfoWidget extends StatelessWidget {
                   Text(
                     author.role,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
+                      color: AppColors.linkText(theme.brightness),
                       fontWeight: FontWeight.w500,
                     ),
                   ),

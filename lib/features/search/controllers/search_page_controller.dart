@@ -57,6 +57,20 @@ class SearchPageController extends GetxController {
     isLoading.value = false;
   }
 
+  /// GetX keys controllers by type, so this instance outlives a visit to an
+  /// article and back, and `onInit` never runs a second time. Each route entry
+  /// calls this from `initState` to put the screen back in sync with its URL.
+  void syncRouteQuery() {
+    final query = (Get.parameters['q'] ?? '').trim();
+    if (query.isEmpty) {
+      if (currentQuery.value.isNotEmpty || hasSearched.value) clearSearch();
+      return;
+    }
+    if (query == currentQuery.value) return;
+    searchController.text = query;
+    performSearch(query);
+  }
+
   Future<void> performSearch(String query) async {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) {

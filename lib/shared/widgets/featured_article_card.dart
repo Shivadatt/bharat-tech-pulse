@@ -24,7 +24,7 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
   static Color _saffronOn(Brightness brightness) =>
       brightness == Brightness.dark
           ? AppColors.saffron
-          : const Color(0xFFB45309);
+          : AppColors.lightSaffronText;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +82,10 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
                 ArticleThumbnail(
                   url: article.featuredImage,
                   fallbackIcon: null,
+                  // The desktop hero slot tops out near 890 logical px, so
+                  // decoding the native 2000px+ original costs ~5x the memory
+                  // the card can actually show.
+                  cacheWidth: 1200,
                   semanticLabel: article.title,
                 ),
                 Container(
@@ -200,6 +204,8 @@ class _FeaturedArticleCardState extends State<FeaturedArticleCard> {
               child: ArticleThumbnail(
                 url: article.featuredImage,
                 fallbackIcon: null,
+                // Phone hero: 430 logical px at 2x dpr.
+                cacheWidth: 900,
                 semanticLabel: article.title,
               ),
             ),

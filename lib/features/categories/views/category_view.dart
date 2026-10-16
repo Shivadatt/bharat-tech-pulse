@@ -158,9 +158,15 @@ class _CategoryViewState extends State<CategoryView> {
                       icon: Icons.grid_view_rounded,
                     ),
                     if (controller.filteredArticles.isEmpty)
-                      const EmptyState(
-                        title: 'No Articles Under This Subcategory',
-                        message: 'Try switching to another subcategory filter above.',
+                      // With no subcategory filter active there is no "filter
+                      // above" to switch, so the advice would point at nothing.
+                      EmptyState(
+                        title: controller.selectedSubcategory.value.isEmpty
+                            ? 'No Articles in This Section Yet'
+                            : 'No Articles Under This Subcategory',
+                        message: controller.selectedSubcategory.value.isEmpty
+                            ? 'New stories for this section appear here as soon as they are published.'
+                            : 'Try switching to another subcategory filter above.',
                       )
                     else
                       ResponsiveGrid(

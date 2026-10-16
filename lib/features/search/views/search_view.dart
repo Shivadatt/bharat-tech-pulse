@@ -11,12 +11,29 @@ import '../../../shared/skeletons/loading_skeleton.dart';
 import '../../../shared/widgets/article_card.dart';
 import '../controllers/search_page_controller.dart';
 
-class SearchView extends GetView<SearchPageController> {
+class SearchView extends StatefulWidget {
   const SearchView({super.key});
+
+  @override
+  State<SearchView> createState() => _SearchViewState();
+}
+
+class _SearchViewState extends State<SearchView> {
+  SearchPageController get controller => Get.find<SearchPageController>();
+
+  @override
+  void initState() {
+    super.initState();
+    // The controller is type-keyed and survives a visit to an article and back,
+    // so onInit never re-runs and the old results would stay on screen under a
+    // bare /search URL. Re-sync with the route instead.
+    controller.syncRouteQuery();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final compact = ResponsiveBreakpoints.isMobile(context);
 
     return PublicScaffold(
       body: ResponsiveContainer(
@@ -32,7 +49,10 @@ class SearchView extends GetView<SearchPageController> {
             const SizedBox(height: 12),
             Text(
               'Search Technology & Guides',
-              style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800),
+              style: theme.textTheme.displaySmall?.copyWith(
+                fontSize: compact ? 24 : null,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -54,13 +74,17 @@ class SearchView extends GetView<SearchPageController> {
                     hintText: compact
                         ? 'Search AI, phones, UPI, safety...'
                         : 'e.g. Sarvam AI, UPI Lite, Best phones under ₹20,000, DigiLocker...',
+                    // No labelText on an icon-only field; InputDecoration uses
+                    // hintText as the semantics label, which is what a screen
+                    // reader announces here.
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.clear_rounded),
                       tooltip: 'Clear search',
-                      onPressed: () {
-                        controller.searchController.clear();
-                      },
+                      // clearSearch() also drops the previous results and the
+                      // "Found N stories" header; emptying the field alone left
+                      // stale results under an empty input.
+                      onPressed: controller.clearSearch,
                     ),
                   ),
                 );
